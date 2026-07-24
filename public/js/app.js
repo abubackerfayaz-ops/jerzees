@@ -417,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <h4>${jersey.name}</h4>
           <span class="team-label">${jersey.team_name}</span>
           <div class="card-footer">
-            <span class="price">$${jersey.version_fan.toFixed(2)} - $${jersey.version_retro.toFixed(2)}</span>
+            <span class="price">$${(jersey.version_fan || 20).toFixed(2)} - $${(jersey.version_retro || 25).toFixed(2)}</span>
             <span class="view-details-btn">View Options</span>
           </div>
         </div>
@@ -435,11 +435,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // Fetch API Helper
   async function apiFetch(endpoint) {
     try {
-      const response = await fetch(endpoint);
-      if (!response.ok) throw new Error('API Request Failed');
-      return await response.json();
+      const response = await fetch(endpoint, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        console.error('apiFetch: expected array, got', typeof data, JSON.stringify(data).substring(0, 200));
+        return [];
+      }
+      return data;
     } catch (error) {
-      console.error(error);
+      console.error('apiFetch error for', endpoint, error);
       return [];
     }
   }
@@ -465,7 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <h4>${jersey.name}</h4>
           <span class="team-label">${jersey.team_name}</span>
           <div class="card-footer">
-            <span class="price">$${jersey.version_fan.toFixed(2)} - $${jersey.version_retro.toFixed(2)}</span>
+            <span class="price">$${(jersey.version_fan || 20).toFixed(2)} - $${(jersey.version_retro || 25).toFixed(2)}</span>
             <span class="view-details-btn">View Options</span>
           </div>
         </div>
@@ -533,7 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <h4>${jersey.name}</h4>
           <span class="team-label">${jersey.team_name}</span>
           <div class="card-footer">
-            <span class="price">$${jersey.version_fan.toFixed(2)} - $${jersey.version_retro.toFixed(2)}</span>
+            <span class="price">$${(jersey.version_fan || 20).toFixed(2)} - $${(jersey.version_retro || 25).toFixed(2)}</span>
             <span class="view-details-btn">View Options</span>
           </div>
         </div>
