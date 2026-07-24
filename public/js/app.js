@@ -392,6 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let jerseys = await apiFetch(endpoint);
+    if (!Array.isArray(jerseys)) jerseys = [];
 
     // Client-side filtering fallback for retro version check
     if (filter === 'retro') {
@@ -436,15 +437,14 @@ document.addEventListener('DOMContentLoaded', () => {
   async function apiFetch(endpoint) {
     try {
       const response = await fetch(endpoint, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
-      const data = await response.json();
-      if (!Array.isArray(data)) {
-        console.error('apiFetch: expected array, got', typeof data, JSON.stringify(data).substring(0, 200));
-        return [];
+      if (!response.ok) {
+        console.error('apiFetch HTTP error:', response.status, endpoint);
+        return null;
       }
-      return data;
+      return await response.json();
     } catch (error) {
       console.error('apiFetch error for', endpoint, error);
-      return [];
+      return null;
     }
   }
 
@@ -453,7 +453,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('featured-jerseys');
     container.innerHTML = '<div class="cart-empty"><p>Loading exclusive products...</p></div>';
     
-    const jerseys = await apiFetch('/api/jerseys?featured=1');
+    const data = await apiFetch('/api/jerseys?featured=1');
+    const jerseys = Array.isArray(data) ? data : [];
     if (!jerseys.length) {
       container.innerHTML = '<div class="cart-empty"><p>No featured jerseys found.</p></div>';
       return;
@@ -490,7 +491,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('teams-list');
     container.innerHTML = '<div class="cart-empty"><p>Loading teams...</p></div>';
 
-    const teams = await apiFetch('/api/teams');
+    const data = await apiFetch('/api/teams');
+    const teams = Array.isArray(data) ? data : [];
     if (!teams.length) {
       container.innerHTML = '<div class="cart-empty"><p>No teams available.</p></div>';
       return;
@@ -517,7 +519,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const headerTitle = document.getElementById('team-name');
     container.innerHTML = '<div class="cart-empty"><p>Loading team collection...</p></div>';
 
-    const jerseys = await apiFetch(`/api/jerseys?team_id=${teamId}`);
+    const data = await apiFetch(`/api/jerseys?team_id=${teamId}`);
+    const jerseys = Array.isArray(data) ? data : [];
     
     if (!jerseys.length) {
       headerTitle.textContent = 'Collection';
@@ -558,7 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
     container.innerHTML = '<div class="cart-empty"><p>Loading details...</p></div>';
 
     const jersey = await apiFetch(`/api/jerseys/${jerseyId}`);
-    if (!jersey || jersey.error) {
+    if (!jersey || typeof jersey !== 'object' || Array.isArray(jersey) || jersey.error) {
       container.innerHTML = '<div class="cart-empty"><p>Jersey not found.</p></div>';
       return;
     }
