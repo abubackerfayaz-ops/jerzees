@@ -226,6 +226,7 @@ async function initialize() {
     await pgPool.query("UPDATE variants SET price = 20 WHERE version = 'fan'");
     await pgPool.query("UPDATE variants SET price = 25 WHERE version = 'player'");
     await pgPool.query("UPDATE variants SET price = 25 WHERE version = 'retro'");
+    await pgPool.query("UPDATE jerseys SET featured = 1 WHERE id IN (SELECT id FROM jerseys ORDER BY id LIMIT 36)");
     return;
   }
 
@@ -376,6 +377,7 @@ async function initialize() {
   d.exec("UPDATE variants SET price = 20 WHERE version = 'fan'");
   d.exec("UPDATE variants SET price = 25 WHERE version = 'player'");
   d.exec("UPDATE variants SET price = 25 WHERE version = 'retro'");
+  d.exec("UPDATE jerseys SET featured = 1 WHERE id IN (SELECT id FROM jerseys ORDER BY id LIMIT 36)");
 }
 
 async function getClient() {

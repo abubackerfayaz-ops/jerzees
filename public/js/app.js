@@ -79,6 +79,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  const apiFetch = apiGet;
+
   async function checkAuth() {
     if (!state.token) return;
     try {
