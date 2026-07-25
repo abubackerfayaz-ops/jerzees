@@ -576,8 +576,24 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Set interactive variables
-    const isRetro = jersey.type === 'retro' || (jersey.name && jersey.name.toLowerCase().includes('retro'));
+    function checkIsRetro(j) {
+      if (j.type && j.type.toLowerCase() === 'retro') return true;
+      if (j.name && j.name.toLowerCase().includes('retro')) return true;
+      if (j.description && j.description.toLowerCase().includes('retro')) return true;
+      if (j.season) {
+        let match = j.season.match(/(\d{4})/);
+        if (match) {
+          if (parseInt(match[1], 10) < 2023) return true;
+        }
+        match = j.season.match(/^(\d{2})[-/]/);
+        if (match) {
+          let y = parseInt(match[1], 10);
+          if (y > 25 || y < 23) return true; 
+        }
+      }
+      return false;
+    }
+    const isRetro = checkIsRetro(jersey);
     let selectedVersion = isRetro ? 'retro' : 'fan';
     let selectedSize = 'M';
     let printNameText = '';

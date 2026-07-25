@@ -482,7 +482,12 @@ app.get('/api/jerseys', async (req, res) => {
     const catFilter = (category || type || '').toLowerCase();
     if (catFilter && catFilter !== 'all') {
       if (catFilter === 'retro') {
-        conditions.push(`(j.type = 'retro' OR j.name ILIKE '%retro%' OR j.description ILIKE '%retro%')`);
+        conditions.push(`(
+          j.type = 'retro' OR 
+          j.name ILIKE '%retro%' OR 
+          j.description ILIKE '%retro%' OR 
+          (j.season IS NOT NULL AND j.season != '' AND j.season NOT ILIKE '%2023%' AND j.season NOT ILIKE '%2024%' AND j.season NOT ILIKE '%2025%' AND j.season NOT ILIKE '%23/%' AND j.season NOT ILIKE '%24/%' AND j.season NOT ILIKE '%25/%')
+        )`);
       } else {
         conditions.push(`j.type = $${params.length + 1}`);
         params.push(catFilter);
