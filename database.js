@@ -222,6 +222,10 @@ async function initialize() {
       const hash = await bcrypt.hash(adminPassword, 10);
       await pgPool.query('INSERT INTO customers (name, email, password_hash, is_admin) VALUES ($1, $2, $3, 1)', ['Admin', adminEmail, hash]);
     }
+    // Normalize variant pricing rules: Fan = €20, Player = €25, Retro = €25
+    await pgPool.query("UPDATE variants SET price = 20 WHERE version = 'fan'");
+    await pgPool.query("UPDATE variants SET price = 25 WHERE version = 'player'");
+    await pgPool.query("UPDATE variants SET price = 25 WHERE version = 'retro'");
     return;
   }
 
@@ -367,6 +371,11 @@ async function initialize() {
     const hash = await bcrypt.hash(adminPassword, 10);
     d.prepare('INSERT INTO customers (name, email, password_hash, is_admin) VALUES (?, ?, ?, 1)').run('Admin', adminEmail, hash);
   }
+
+  // Normalize variant pricing rules: Fan = €20, Player = €25, Retro = €25
+  d.exec("UPDATE variants SET price = 20 WHERE version = 'fan'");
+  d.exec("UPDATE variants SET price = 25 WHERE version = 'player'");
+  d.exec("UPDATE variants SET price = 25 WHERE version = 'retro'");
 }
 
 async function getClient() {

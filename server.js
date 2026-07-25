@@ -228,6 +228,84 @@ app.get('/api/auth/me', authOptional, async (req, res) => {
   }
 });
 
+// ─── EXCHANGE RATES ──────────────────────────────────────────────────────────
+
+const DEFAULT_RATES = {
+  EUR: 1.0,
+  USD: 1.08,
+  GBP: 0.85,
+  CAD: 1.48,
+  AUD: 1.65,
+  JPY: 165.0,
+  INR: 90.0,
+  AED: 3.97,
+  SAR: 4.05,
+  CHF: 0.96,
+  BRL: 6.0,
+  MXN: 20.0
+};
+
+const CURRENCY_SYMBOLS = {
+  EUR: '€',
+  USD: '$',
+  GBP: '£',
+  CAD: 'CA$',
+  AUD: 'A$',
+  JPY: '¥',
+  INR: '₹',
+  AED: 'AED ',
+  SAR: 'SAR ',
+  CHF: 'CHF ',
+  BRL: 'R$',
+  MXN: 'MEX$'
+};
+
+let exchangeRatesCache = {
+  base: 'EUR',
+  rates: { ...DEFAULT_RATES },
+  timestamp: 0
+};
+
+function fetchLiveExchangeRates() {
+  return new Promise((resolve) => {
+    https.get('https://open.er-api.com/v6/latest/EUR', (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(body);
+          if (json && json.rates) {
+            json.rates.EUR = 1.0;
+            exchangeRatesCache = {
+              base: 'EUR',
+              rates: { ...DEFAULT_RATES, ...json.rates },
+              timestamp: Date.now()
+            };
+            console.log('[ExchangeRates] Live rates updated from Open Exchange Rates API');
+            return resolve(exchangeRatesCache);
+          }
+        } catch (e) {}
+        resolve(exchangeRatesCache);
+      });
+    }).on('error', () => {
+      resolve(exchangeRatesCache);
+    });
+  });
+}
+
+app.get('/api/exchange-rates', async (req, res) => {
+  const ONE_HOUR = 3600000;
+  if (Date.now() - exchangeRatesCache.timestamp > ONE_HOUR) {
+    await fetchLiveExchangeRates();
+  }
+  res.json({
+    base: 'EUR',
+    rates: exchangeRatesCache.rates,
+    symbols: CURRENCY_SYMBOLS,
+    updated_at: new Date(exchangeRatesCache.timestamp || Date.now()).toISOString()
+  });
+});
+
 // ─── STRIPE ──────────────────────────────────────────────────────────────────
 
 // Return public Stripe key to frontend
@@ -382,7 +460,7 @@ app.get('/api/teams/:slug', async (req, res) => {
 
 app.get('/api/jerseys', async (req, res) => {
   try {
-    const { team_id, featured, type, search } = req.query;
+    const { team_id, featured, type, category, search } = req.query;
     let sql = `
       SELECT j.*, t.name as team_name, t.slug as team_slug,
         (SELECT MIN(price) FROM variants WHERE jersey_id = j.id AND active = 1) as price_from,
@@ -400,13 +478,29 @@ app.get('/api/jerseys', async (req, res) => {
     if (featured) {
       conditions.push('j.featured = 1');
     }
-    if (type) {
-      conditions.push(`j.type = $${params.length + 1}`);
-      params.push(type);
+
+    const catFilter = (category || type || '').toLowerCase();
+    if (catFilter && catFilter !== 'all') {
+      if (catFilter === 'retro') {
+        conditions.push(`(j.type = 'retro' OR j.name ILIKE '%retro%' OR j.description ILIKE '%retro%')`);
+      } else {
+        conditions.push(`j.type = $${params.length + 1}`);
+        params.push(catFilter);
+      }
     }
+
     if (search) {
-      conditions.push(`(j.name ILIKE $${params.length + 1} OR t.name ILIKE $${params.length + 1})`);
-      params.push(`%${search}%`);
+      const term = `%${search.trim()}%`;
+      const pIdx = params.length + 1;
+      conditions.push(`(
+        j.name ILIKE $${pIdx} OR
+        t.name ILIKE $${pIdx} OR
+        t.country ILIKE $${pIdx} OR
+        j.description ILIKE $${pIdx} OR
+        j.season ILIKE $${pIdx} OR
+        j.type ILIKE $${pIdx}
+      )`);
+      params.push(term);
     }
 
     if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
@@ -416,8 +510,8 @@ app.get('/api/jerseys', async (req, res) => {
 
     const result = jerseys.map(j => ({
       ...j,
-      version_fan: j.price_from || 20,
-      version_player: 23,
+      version_fan: 20,
+      version_player: 25,
       version_retro: 25,
     }));
 
@@ -463,7 +557,7 @@ app.get('/api/jerseys/:id', async (req, res) => {
     res.json({
       ...jersey,
       version_fan: versionPrices.fan || 20,
-      version_player: versionPrices.player || 23,
+      version_player: versionPrices.player || 25,
       version_retro: versionPrices.retro || 25,
       image_url: images.length ? images[0].image_url : null,
       images,
@@ -595,7 +689,7 @@ app.post('/api/cart/clear', async (req, res) => {
 
 app.post('/api/checkout', async (req, res) => {
   try {
-    const { customer_name, email, phone, address, notes } = req.body;
+    const { customer_name, email, phone, address, country, notes, currency_symbol } = req.body;
     if (!customer_name || !email || !address) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -629,10 +723,11 @@ app.post('/api/checkout', async (req, res) => {
     }
 
     // Create address
+    const countryName = country || 'United Kingdom';
     const addr = await db.query(
       `INSERT INTO addresses (customer_id, label, street, city, country, is_default)
-       VALUES ($1, 'Shipping', $2, '', 'US', 1) RETURNING id`,
-      [customer.id, address]
+       VALUES ($1, 'Shipping', $2, '', $3, 1) RETURNING id`,
+      [customer.id, address, countryName]
     );
     const addressId = addr.rows[0].id;
 
@@ -650,7 +745,7 @@ app.post('/api/checkout', async (req, res) => {
     // Create order
     const orderRes = await db.query(
       `INSERT INTO orders (customer_id, email, phone, shipping_address_id, notes, subtotal, delivery_fee, name_printing_fee, total, status, payment_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'confirmed', 'unpaid') RETURNING id`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'confirmed', 'paid') RETURNING id`,
       [customer.id, email, phone || null, addressId, notes || null, subtotal, deliveryFee, namePrintFee, total]
     );
     const orderId = orderRes.rows[0].id;
@@ -669,6 +764,33 @@ app.post('/api/checkout', async (req, res) => {
     await db.query('DELETE FROM cart_items WHERE session_id = $1', [req.sessionId]);
 
     res.json({ order_id: orderId, total, delivery_fee: deliveryFee, name_printing_fee: namePrintFee });
+
+    // Send complete structured notification
+    try {
+      const notifItems = await db.all(
+        `SELECT oi.*, j.name as jersey_name, j.season, t.name as club
+         FROM order_items oi
+         JOIN jerseys j ON oi.jersey_id = j.id
+         JOIN teams t ON j.team_id = t.id
+         WHERE oi.order_id = $1`,
+        [orderId]
+      );
+      notifyOrder({
+        orderId,
+        customerName: customer_name,
+        phone: phone || 'N/A',
+        email,
+        address,
+        country: countryName,
+        total,
+        currencySymbol: currency_symbol || '€',
+        paymentStatus: 'Paid',
+        createdTime: new Date().toISOString(),
+        items: notifItems
+      });
+    } catch (notifErr) {
+      console.error('Checkout notification error:', notifErr.message);
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -679,7 +801,7 @@ app.post('/api/checkout', async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const { customer_name, email, phone, address, notes, items } = req.body;
+    const { customer_name, email, phone, address, country, notes, items, currency_symbol } = req.body;
     if (!customer_name || !email || !address || !items || !items.length) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -714,15 +836,16 @@ app.post('/api/orders', async (req, res) => {
       customer = c.rows[0];
     }
 
+    const countryName = country || 'United Kingdom';
     const addr = await db.query(
       `INSERT INTO addresses (customer_id, label, street, city, country, is_default)
-       VALUES ($1, 'Shipping', $2, '', 'US', 1) RETURNING id`,
-      [customer.id, address]
+       VALUES ($1, 'Shipping', $2, '', $3, 1) RETURNING id`,
+      [customer.id, address, countryName]
     );
 
     const orderRes = await db.query(
       `INSERT INTO orders (customer_id, email, phone, shipping_address_id, notes, subtotal, delivery_fee, name_printing_fee, total, status, payment_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', 'unpaid') RETURNING id`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'confirmed', 'paid') RETURNING id`,
       [customer.id, email, phone || null, addr.rows[0].id, notes || null, subtotal, deliveryFee, namePrintFee, total]
     );
     const orderId = orderRes.rows[0].id;
@@ -738,16 +861,32 @@ app.post('/api/orders', async (req, res) => {
 
     res.json({ order_id: orderId, total, delivery_fee: deliveryFee, name_printing_fee: namePrintFee });
 
-    // Non-blocking notification
+    // Send complete notification
     try {
       const notifItems = await db.all(
-        `SELECT oi.*, j.name as jersey_name
-         FROM order_items oi JOIN jerseys j ON oi.jersey_id = j.id
+        `SELECT oi.*, j.name as jersey_name, j.season, t.name as club
+         FROM order_items oi
+         JOIN jerseys j ON oi.jersey_id = j.id
+         JOIN teams t ON j.team_id = t.id
          WHERE oi.order_id = $1`,
         [orderId]
       );
-      notifyOrder(orderId, customer_name, total, notifItems);
-    } catch (_) {}
+      notifyOrder({
+        orderId,
+        customerName: customer_name,
+        phone: phone || 'N/A',
+        email,
+        address,
+        country: countryName,
+        total,
+        currencySymbol: currency_symbol || '€',
+        paymentStatus: 'Paid',
+        createdTime: new Date().toISOString(),
+        items: notifItems
+      });
+    } catch (notifErr) {
+      console.error('Orders endpoint notification error:', notifErr.message);
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });

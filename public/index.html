@@ -49,6 +49,25 @@
       </nav>
 
       <div class="nav-icons">
+        <!-- Region / Country Selector -->
+        <div class="region-selector-container" title="Select Region & Currency">
+          <svg class="globe-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <select id="header-region-select" class="header-region-select">
+            <option value="DE">Germany (€ EUR)</option>
+            <option value="FR">France (€ EUR)</option>
+            <option value="ES">Spain (€ EUR)</option>
+            <option value="IT">Italy (€ EUR)</option>
+            <option value="GB">United Kingdom (£ GBP)</option>
+            <option value="US">United States ($ USD)</option>
+            <option value="CA">Canada (CA$ CAD)</option>
+            <option value="AU">Australia (A$ AUD)</option>
+            <option value="JP">Japan (¥ JPY)</option>
+            <option value="IN">India (₹ INR)</option>
+            <option value="AE">UAE (AED)</option>
+            <option value="SA">Saudi Arabia (SAR)</option>
+          </select>
+        </div>
+
         <!-- Search -->
         <div class="nav-icon" id="nav-search" title="Search">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -95,7 +114,7 @@
 
         <div class="hero-badges fade-up">
           <div class="hero-badge"><span class="dot"></span>Verified Authentic</div>
-          <div class="hero-badge"><span class="dot"></span>UAE Delivery</div>
+          <div class="hero-badge"><span class="dot"></span>International Delivery</div>
         </div>
 
         <h1 class="hero-heading fade-up" style="transition-delay:0.1s">
@@ -224,6 +243,16 @@
       <div class="section">
         <div class="section-header fade-up">
           <div class="section-title" id="catalog-title">All <span>Kits</span></div>
+        </div>
+        <!-- Category Filter Bar -->
+        <div class="category-filter-bar fade-up" id="category-filter-bar">
+          <button class="cat-filter-btn active" data-category="all">All Kits</button>
+          <button class="cat-filter-btn" data-category="home">Home</button>
+          <button class="cat-filter-btn" data-category="away">Away</button>
+          <button class="cat-filter-btn" data-category="third">Third</button>
+          <button class="cat-filter-btn" data-category="retro">Retro</button>
+          <button class="cat-filter-btn" data-category="training">Training</button>
+          <button class="cat-filter-btn" data-category="tracksuit">Tracksuit</button>
         </div>
         <div id="catalog-jerseys" class="jersey-grid"></div>
       </div>
@@ -425,6 +454,23 @@
               <div class="form-group">
                 <label>Phone Number</label>
                 <input type="tel" name="phone" placeholder="+1 (555) 000-0000">
+              </div>
+              <div class="form-group">
+                <label>Country / Region *</label>
+                <select name="country" id="checkout-country" required class="form-control" style="width:100%;padding:12px;background:var(--bg-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);">
+                  <option value="United Kingdom">United Kingdom</option>
+                  <option value="Germany">Germany</option>
+                  <option value="France">France</option>
+                  <option value="Spain">Spain</option>
+                  <option value="Italy">Italy</option>
+                  <option value="United States">United States</option>
+                  <option value="Canada">Canada</option>
+                  <option value="Australia">Australia</option>
+                  <option value="Japan">Japan</option>
+                  <option value="India">India</option>
+                  <option value="United Arab Emirates">United Arab Emirates</option>
+                  <option value="Saudi Arabia">Saudi Arabia</option>
+                </select>
               </div>
               <div class="form-group">
                 <label>Shipping Address *</label>

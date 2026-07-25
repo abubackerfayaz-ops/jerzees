@@ -11,8 +11,38 @@ document.addEventListener('DOMContentLoaded', () => {
     historyStack: ['home'],
     token: localStorage.getItem('auth_token') || null,
     user: null,
-    userOrders: []
+    userOrders: [],
+    currency: localStorage.getItem('selected_currency') || 'EUR',
+    country: localStorage.getItem('selected_country') || 'Germany',
+    exchangeRates: { EUR: 1.0, USD: 1.08, GBP: 0.85, CAD: 1.48, AUD: 1.65, JPY: 165.0, INR: 90.0, AED: 3.97, SAR: 4.05, CHF: 0.96, BRL: 6.0, MXN: 20.0 },
+    currencySymbols: { EUR: '€', USD: '$', GBP: '£', CAD: 'CA$', AUD: 'A$', JPY: '¥', INR: '₹', AED: 'AED ', SAR: 'SAR ', CHF: 'CHF ', BRL: 'R$', MXN: 'MEX$' },
+    activeCategory: 'all'
   };
+
+  const COUNTRY_MAP = {
+    'DE': { name: 'Germany', currency: 'EUR' },
+    'FR': { name: 'France', currency: 'EUR' },
+    'ES': { name: 'Spain', currency: 'EUR' },
+    'IT': { name: 'Italy', currency: 'EUR' },
+    'GB': { name: 'United Kingdom', currency: 'GBP' },
+    'US': { name: 'United States', currency: 'USD' },
+    'CA': { name: 'Canada', currency: 'CAD' },
+    'AU': { name: 'Australia', currency: 'AUD' },
+    'JP': { name: 'Japan', currency: 'JPY' },
+    'IN': { name: 'India', currency: 'INR' },
+    'AE': { name: 'United Arab Emirates', currency: 'AED' },
+    'SA': { name: 'Saudi Arabia', currency: 'SAR' }
+  };
+
+  function formatPrice(amountInEUR) {
+    const rate = state.exchangeRates[state.currency] || 1.0;
+    const symbol = state.currencySymbols[state.currency] || '€';
+    const converted = (amountInEUR || 0) * rate;
+    if (state.currency === 'JPY') {
+      return `${symbol}${Math.round(converted)}`;
+    }
+    return `${symbol}${converted.toFixed(2)}`;
+  }
 
   // Pricing constants matching backend config
   const FEES = {
@@ -379,30 +409,24 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadCatalogJerseys(filter) {
     const container = document.getElementById('catalog-jerseys');
     const titleEl = document.getElementById('catalog-title');
+    if (!container) return;
     container.innerHTML = '<div class="cart-empty"><p>Loading kits...</p></div>';
 
-    let endpoint = '/api/jerseys';
-    if (filter === 'new') {
-      endpoint = '/api/jerseys?featured=1';
-      titleEl.innerHTML = 'New <span>Drops</span>';
-    } else if (filter === 'retro') {
+    const category = filter || state.activeCategory || 'all';
+    state.activeCategory = category;
+
+    let endpoint = `/api/jerseys?category=${encodeURIComponent(category)}`;
+    if (category === 'all') {
+      titleEl.innerHTML = 'Shop <span>All Kits</span>';
+    } else if (category === 'retro') {
       titleEl.innerHTML = 'Classic <span>Retro</span>';
     } else {
-      titleEl.innerHTML = 'Shop <span>All Kits</span>';
+      const catCapitalized = category.charAt(0).toUpperCase() + category.slice(1);
+      titleEl.innerHTML = `${catCapitalized} <span>Kits</span>`;
     }
 
     let jerseys = await apiFetch(endpoint);
     if (!Array.isArray(jerseys)) jerseys = [];
-
-    // Client-side filtering fallback for retro version check
-    if (filter === 'retro') {
-      jerseys = jerseys.filter(j => 
-        (j.name && j.name.toLowerCase().includes('retro')) ||
-        (j.name && j.name.toLowerCase().includes('199')) ||
-        (j.name && j.name.toLowerCase().includes('200')) ||
-        (j.name && j.name.toLowerCase().includes('198'))
-      );
-    }
 
     if (!jerseys.length) {
       container.innerHTML = '<div class="cart-empty"><p>No jerseys found matching this category.</p></div>';
@@ -418,7 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <h4>${jersey.name}</h4>
           <span class="team-label">${jersey.team_name}</span>
           <div class="card-footer">
-            <span class="price">$${(jersey.version_fan || 20).toFixed(2)} - $${(jersey.version_retro || 25).toFixed(2)}</span>
+            <span class="price">${formatPrice(20)} - ${formatPrice(25)}</span>
             <span class="view-details-btn">View Options</span>
           </div>
         </div>
@@ -433,24 +457,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Fetch API Helper
-  async function apiFetch(endpoint) {
-    try {
-      const response = await fetch(endpoint, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
-      if (!response.ok) {
-        console.error('apiFetch HTTP error:', response.status, endpoint);
-        return null;
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('apiFetch error for', endpoint, error);
-      return null;
-    }
-  }
-
   // Load Featured Jerseys on Homepage
   async function loadFeaturedJerseys() {
     const container = document.getElementById('featured-jerseys');
+    if (!container) return;
     container.innerHTML = '<div class="cart-empty"><p>Loading exclusive products...</p></div>';
     
     const data = await apiFetch('/api/jerseys?featured=1');
@@ -470,7 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <h4>${jersey.name}</h4>
           <span class="team-label">${jersey.team_name}</span>
           <div class="card-footer">
-            <span class="price">$${(jersey.version_fan || 20).toFixed(2)} - $${(jersey.version_retro || 25).toFixed(2)}</span>
+            <span class="price">${formatPrice(20)} - ${formatPrice(25)}</span>
             <span class="view-details-btn">View Options</span>
           </div>
         </div>
@@ -567,14 +577,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Set interactive variables
-    let selectedVersion = 'fan';
+    const isRetro = jersey.type === 'retro' || (jersey.name && jersey.name.toLowerCase().includes('retro'));
+    let selectedVersion = isRetro ? 'retro' : 'fan';
     let selectedSize = 'M';
     let printNameText = '';
 
     const priceTiers = {
-      fan: jersey.version_fan || 20,
-      player: jersey.version_player || 23,
-      retro: jersey.version_retro || 25
+      fan: 20,
+      player: 25,
+      retro: 25
     };
 
     function getCombinedPrice() {
@@ -605,18 +616,21 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="version-selector">
             <h4 class="selector-title">Select Fit Version</h4>
             <div class="version-options">
+              ${isRetro ? `
+              <div class="version-option active" data-version="retro">
+                <h5>Retro Fit</h5>
+                <span>${formatPrice(priceTiers.retro)}</span>
+              </div>
+              ` : `
               <div class="version-option ${selectedVersion === 'fan' ? 'active' : ''}" data-version="fan">
                 <h5>Fan Fit</h5>
-                <span>$${priceTiers.fan.toFixed(2)}</span>
+                <span>${formatPrice(priceTiers.fan)}</span>
               </div>
               <div class="version-option ${selectedVersion === 'player' ? 'active' : ''}" data-version="player">
                 <h5>Player Fit</h5>
-                <span>$${priceTiers.player.toFixed(2)}</span>
+                <span>${formatPrice(priceTiers.player)}</span>
               </div>
-              <div class="version-option ${selectedVersion === 'retro' ? 'active' : ''}" data-version="retro">
-                <h5>Retro Fit</h5>
-                <span>$${priceTiers.retro.toFixed(2)}</span>
-              </div>
+              `}
             </div>
           </div>
 
@@ -632,7 +646,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="name-printing">
             <div class="name-printing-header">
               <h4 class="selector-title" style="margin-bottom:0;">Custom Name Printing (At Back)</h4>
-              <span class="name-printing-price">+$${FEES.namePrinting.toFixed(2)}</span>
+              <span class="name-printing-price">+${formatPrice(FEES.namePrinting)}</span>
             </div>
             <input type="text" id="name-print-input" placeholder="e.g. CR7, MESSI, RONALDINHO" maxlength="15" value="${printNameText}">
             <p class="fee-note">Add custom name & number. Real-time updates automatically.</p>
@@ -640,7 +654,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           <div class="detail-price-box">
             <span class="label">Total Price:</span>
-            <span class="detail-price" id="detail-total-price">$${getCombinedPrice().toFixed(2)}</span>
+            <span class="detail-price" id="detail-total-price">${formatPrice(getCombinedPrice())}</span>
           </div>
 
           <button class="btn btn-primary btn-block" id="add-to-cart-btn">Add to Cart Bag</button>
@@ -687,7 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updatePriceDisplay() {
       const priceText = document.getElementById('detail-total-price');
       if (priceText) {
-        priceText.textContent = `$${getCombinedPrice().toFixed(2)}`;
+        priceText.textContent = formatPrice(getCombinedPrice());
       }
     }
 
@@ -817,10 +831,10 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="cart-item-info">
             <h4>${item.name}</h4>
             <p>Fit: <span style="text-transform: uppercase;">${item.version}</span> | Size: ${item.size}</p>
-            ${hasCustomPrint ? `<p class="item-customization">Printed Back Name: ${item.name_text} (+$${FEES.namePrinting})</p>` : ''}
+            ${hasCustomPrint ? `<p class="item-customization">Printed Back Name: ${item.name_text} (+${formatPrice(FEES.namePrinting)})</p>` : ''}
           </div>
           <div class="cart-item-price-qty">
-            <span class="cart-item-price">$${(unitTotalPrice * item.quantity).toFixed(2)}</span>
+            <span class="cart-item-price">${formatPrice(unitTotalPrice * item.quantity)}</span>
             <div class="cart-item-qty">
               <button class="qty-btn" data-action="decrease" data-index="${idx}">-</button>
               <span>${item.quantity}</span>
@@ -878,19 +892,19 @@ document.addEventListener('DOMContentLoaded', () => {
     summary.innerHTML = `
       <div class="row">
         <span>Subtotal (Base Jerseys)</span>
-        <span>$${itemsSubtotal.toFixed(2)}</span>
+        <span>${formatPrice(itemsSubtotal)}</span>
       </div>
       <div class="row">
         <span>Custom Name Printing</span>
-        <span>$${namePrintTotal.toFixed(2)}</span>
+        <span>${formatPrice(namePrintTotal)}</span>
       </div>
       <div class="row">
         <span>Delivery Flat Fee</span>
-        <span>$${deliveryTotal.toFixed(2)}</span>
+        <span>${formatPrice(deliveryTotal)}</span>
       </div>
       <div class="row total">
         <span>Order Total</span>
-        <span>$${finalTotal.toFixed(2)}</span>
+        <span>${formatPrice(finalTotal)}</span>
       </div>
       <button class="btn btn-primary btn-block" style="margin-top:24px;" id="proceed-to-checkout-btn">Checkout Securely</button>
     `;
@@ -917,31 +931,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const deliveryTotal = FEES.delivery;
     const finalTotal = itemsSubtotal + namePrintTotal + deliveryTotal;
 
+    const checkoutCountrySelect = document.getElementById('checkout-country');
+    if (checkoutCountrySelect && state.country) {
+      checkoutCountrySelect.value = state.country;
+    }
+
     container.innerHTML = `
       <div class="checkout-summary-box" style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:16px; padding:24px; box-shadow:var(--card-shadow); margin-bottom:24px;">
         <div style="border-bottom:1px solid var(--border-color); padding-bottom:16px; margin-bottom:16px;">
           ${state.cart.map(item => `
             <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:10px;">
               <span style="color:var(--text-primary); font-weight:500;">${item.name} (${item.size}) x${item.quantity}</span>
-              <span style="color:var(--accent-gold); font-weight:600;">$${((item.price + (item.name_text ? FEES.namePrinting : 0)) * item.quantity).toFixed(2)}</span>
+              <span style="color:var(--accent-gold); font-weight:600;">${formatPrice((item.price + (item.name_text ? FEES.namePrinting : 0)) * item.quantity)}</span>
             </div>
           `).join('')}
         </div>
         <div class="row" style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.9rem; color:var(--text-secondary);">
           <span>Items Subtotal</span>
-          <span>$${itemsSubtotal.toFixed(2)}</span>
+          <span>${formatPrice(itemsSubtotal)}</span>
         </div>
         <div class="row" style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.9rem; color:var(--text-secondary);">
           <span>Name Printing Fee</span>
-          <span>$${namePrintTotal.toFixed(2)}</span>
+          <span>${formatPrice(namePrintTotal)}</span>
         </div>
         <div class="row" style="display:flex; justify-content:space-between; margin-bottom:16px; font-size:0.9rem; color:var(--text-secondary);">
           <span>Flat Delivery Fee</span>
-          <span>$${deliveryTotal.toFixed(2)}</span>
+          <span>${formatPrice(deliveryTotal)}</span>
         </div>
         <div class="row total" style="display:flex; justify-content:space-between; font-size:1.25rem; font-weight:700; border-top:1px solid var(--border-color); padding-top:16px; color:var(--text-primary);">
           <span>Final Total</span>
-          <span style="color:var(--accent-gold);">$${finalTotal.toFixed(2)}</span>
+          <span style="color:var(--accent-gold);">${formatPrice(finalTotal)}</span>
         </div>
       </div>
     `;
@@ -953,16 +972,19 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     const submitBtn = checkoutForm.querySelector('button[type="submit"]');
     const originalText = submitBtn.textContent;
-    submitBtn.textContent = 'Redirecting to Payment...';
+    submitBtn.textContent = 'Processing Order...';
     submitBtn.disabled = true;
 
     const formData = new FormData(checkoutForm);
+    const selectedCountry = formData.get('country') || state.country || 'United Kingdom';
     const orderData = {
       customer_name: formData.get('customer_name'),
       email: formData.get('email'),
       phone: formData.get('phone'),
+      country: selectedCountry,
       address: formData.get('address'),
       notes: formData.get('notes'),
+      currency_symbol: state.currencySymbols[state.currency] || '€',
       items: state.cart.map(item => ({
         jersey_id: item.jersey_id,
         size: item.size,
@@ -973,7 +995,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     try {
-      // Try Stripe Checkout first
+      // Try Stripe Checkout first if configured
       const stripeRes = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -983,7 +1005,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const stripeResult = await stripeRes.json();
 
       if (stripeRes.ok && stripeResult.url) {
-        // Stripe is configured - redirect to Checkout
         state.cart = [];
         saveCart();
         updateCartCount();
@@ -992,8 +1013,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // Stripe unavailable - fall back to legacy direct order placement
-      const response = await fetch('/api/orders', {
+      // Legacy direct order placement
+      const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData)
@@ -1871,7 +1892,81 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  async function initCurrencySystem() {
+    try {
+      const res = await fetch('/api/exchange-rates');
+      const data = await res.json();
+      if (data && data.rates) {
+        state.exchangeRates = data.rates;
+        if (data.symbols) state.currencySymbols = data.symbols;
+      }
+    } catch (_) {}
+
+    const selectEl = document.getElementById('header-region-select');
+    if (selectEl) {
+      let foundCode = 'DE';
+      for (const [code, info] of Object.entries(COUNTRY_MAP)) {
+        if (info.currency === state.currency || info.name === state.country) {
+          foundCode = code;
+          break;
+        }
+      }
+      selectEl.value = foundCode;
+
+      selectEl.addEventListener('change', (e) => {
+        const info = COUNTRY_MAP[e.target.value] || COUNTRY_MAP['DE'];
+        state.currency = info.currency;
+        state.country = info.name;
+        localStorage.setItem('selected_currency', state.currency);
+        localStorage.setItem('selected_country', state.country);
+
+        const checkoutCountry = document.getElementById('checkout-country');
+        if (checkoutCountry) checkoutCountry.value = state.country;
+
+        if (state.currentPage === 'home') {
+          loadFeaturedJerseys();
+        } else if (state.currentPage === 'catalog') {
+          loadCatalogJerseys(state.activeCategory || 'all');
+        } else if (state.currentPage === 'detail' && state.jerseyId) {
+          loadJerseyDetail(state.jerseyId);
+        } else if (state.currentPage === 'cart') {
+          renderCart();
+        } else if (state.currentPage === 'checkout') {
+          renderCheckoutSummary();
+        }
+        updatePricingInfoStrip();
+      });
+    }
+    updatePricingInfoStrip();
+  }
+
+  function updatePricingInfoStrip() {
+    const fanEl = document.getElementById('price-fan');
+    const playerEl = document.getElementById('price-player');
+    const retroEl = document.getElementById('price-retro');
+    const delivEl = document.getElementById('price-delivery');
+    if (fanEl) fanEl.textContent = formatPrice(20);
+    if (playerEl) playerEl.textContent = formatPrice(25);
+    if (retroEl) retroEl.textContent = formatPrice(25);
+    if (delivEl) delivEl.textContent = formatPrice(5);
+  }
+
+  function initCategoryFilters() {
+    document.querySelectorAll('#category-filter-bar .cat-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#category-filter-bar .cat-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const cat = btn.getAttribute('data-category');
+        state.activeCategory = cat;
+        loadCatalogJerseys(cat);
+      });
+    });
+  }
+
   // ─── INIT ───────────────────────────────────────────────────────────────
+
+  initCurrencySystem();
+  initCategoryFilters();
 
   // Check if user is already logged in
   checkAuth().then(() => {

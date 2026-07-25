@@ -2296,3 +2296,84 @@ footer::before {
   .form-row { grid-template-columns: 1fr; }
 }
 .admin-nav-link { display: none; }
+
+/* ─── Region & Currency Selector ─── */
+.region-selector-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  transition: var(--transition);
+}
+.region-selector-container:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 0 12px rgba(179, 240, 0, 0.08);
+}
+.region-selector-container .globe-icon {
+  color: var(--green);
+  flex-shrink: 0;
+}
+.header-region-select {
+  background: transparent;
+  border: none;
+  color: var(--white);
+  font-family: var(--font-main);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  padding-right: 4px;
+}
+.header-region-select option {
+  background: var(--bg-2);
+  color: var(--white);
+  padding: 8px;
+}
+
+/* ─── Category Filter Bar ─── */
+.category-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.category-filter-bar::-webkit-scrollbar {
+  height: 4px;
+}
+.category-filter-bar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+.cat-filter-btn {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--gray);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+.cat-filter-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--white);
+}
+.cat-filter-btn.active {
+  background: rgba(179, 240, 0, 0.12);
+  border-color: var(--green);
+  color: var(--green);
+  box-shadow: 0 0 15px rgba(179, 240, 0, 0.1);
+}
+
