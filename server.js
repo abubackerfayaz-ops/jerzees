@@ -943,9 +943,11 @@ app.get('/api/orders/:id', async (req, res) => {
     // Support lookup by numeric order ID or Stripe session ID (prefixed with cs_)
     const isStripeSession = req.params.id.startsWith('cs_');
     const order = await db.get(
-      `SELECT o.*, c.name as customer_name, c.email as customer_email
+      `SELECT o.*, c.name as customer_name, c.email as customer_email,
+              a.street as address, a.country as address_country
        FROM orders o
        LEFT JOIN customers c ON o.customer_id = c.id
+       LEFT JOIN addresses a ON o.shipping_address_id = a.id
        WHERE ${isStripeSession ? 'o.stripe_session_id' : 'o.id'} = $1`,
       [req.params.id]
     );
