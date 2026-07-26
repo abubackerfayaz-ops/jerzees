@@ -486,8 +486,25 @@ app.get('/api/jerseys', async (req, res) => {
           j.type = 'retro' OR 
           j.name ILIKE '%retro%' OR 
           j.description ILIKE '%retro%' OR 
-          (j.season IS NOT NULL AND j.season != '' AND j.season NOT ILIKE '%2023%' AND j.season NOT ILIKE '%2024%' AND j.season NOT ILIKE '%2025%' AND j.season NOT ILIKE '%23/%' AND j.season NOT ILIKE '%24/%' AND j.season NOT ILIKE '%25/%')
+          (j.season IS NOT NULL AND j.season != '' AND 
+           j.season NOT ILIKE '%2024%' AND j.season NOT ILIKE '%2025%' AND j.season NOT ILIKE '%2026%' AND 
+           j.season NOT ILIKE '%24/%' AND j.season NOT ILIKE '%25/%' AND j.season NOT ILIKE '%26/%')
         )`);
+      } else if (catFilter === 'new' || catFilter === 'new drops' || catFilter === 'new-drops') {
+        conditions.push(`(
+          j.type = 'new' OR
+          j.name ILIKE '%new%' OR
+          j.season ILIKE '%2024%' OR
+          j.season ILIKE '%2025%' OR
+          j.season ILIKE '%2026%' OR
+          j.season ILIKE '%24/%' OR
+          j.season ILIKE '%25/%' OR
+          j.season ILIKE '%26/%'
+        )`);
+      } else if (catFilter === 'training') {
+        conditions.push(`(j.type = 'training' OR j.name ILIKE '%training%' OR j.description ILIKE '%training%')`);
+      } else if (catFilter === 'tracksuit') {
+        conditions.push(`(j.type = 'tracksuit' OR j.name ILIKE '%tracksuit%' OR j.description ILIKE '%tracksuit%')`);
       } else {
         conditions.push(`j.type = $${params.length + 1}`);
         params.push(catFilter);

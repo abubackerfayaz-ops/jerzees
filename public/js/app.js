@@ -419,13 +419,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let endpoint = `/api/jerseys?category=${encodeURIComponent(category)}`;
     if (category === 'all') {
-      titleEl.innerHTML = 'Shop <span>All Kits</span>';
+      if (titleEl) titleEl.innerHTML = 'Shop <span>All Kits</span>';
     } else if (category === 'retro') {
-      titleEl.innerHTML = 'Classic <span>Retro</span>';
+      if (titleEl) titleEl.innerHTML = 'Classic <span>Retro</span>';
+    } else if (category === 'new' || category === 'new-drops' || category === 'new_drops') {
+      if (titleEl) titleEl.innerHTML = 'New <span>Kits &amp; Drops</span>';
+    } else if (category === 'training') {
+      if (titleEl) titleEl.innerHTML = 'Training <span>Kits</span>';
+    } else if (category === 'tracksuit') {
+      if (titleEl) titleEl.innerHTML = 'Full <span>Tracksuits</span>';
     } else {
       const catCapitalized = category.charAt(0).toUpperCase() + category.slice(1);
-      titleEl.innerHTML = `${catCapitalized} <span>Kits</span>`;
+      if (titleEl) titleEl.innerHTML = `${catCapitalized} <span>Kits</span>`;
     }
+
+    // Sync the active state on the filter bar buttons
+    document.querySelectorAll('#category-filter-bar .cat-filter-btn').forEach(b => {
+      const btnCat = b.getAttribute('data-category');
+      b.classList.toggle('active',
+        btnCat === category ||
+        (category === 'new' && btnCat === 'all') ||
+        (category === 'new-drops' && btnCat === 'all')
+      );
+    });
 
     let jerseys = await apiFetch(endpoint);
     if (!Array.isArray(jerseys)) jerseys = [];
@@ -661,18 +677,34 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
           </div>
 
+          ${!jersey.has_name_behind ? `
           <div class="name-printing">
             <div class="name-printing-header">
               <h4 class="selector-title" style="margin-bottom:0;">Custom Name Printing (At Back)</h4>
               <span class="name-printing-price">+${formatPrice(FEES.namePrinting)}</span>
             </div>
             <input type="text" id="name-print-input" placeholder="e.g. CR7, MESSI, RONALDINHO" maxlength="15" value="${printNameText}">
-            <p class="fee-note">Add custom name & number. Real-time updates automatically.</p>
+            <p class="fee-note">Add custom name & number on back of jersey. Real-time price updates.</p>
           </div>
+          ` : `
+          <div class="name-printing" style="background: rgba(30, 40, 60, 0.4); border-color: rgba(229, 193, 88, 0.3);">
+            <div class="name-printing-header">
+              <h4 class="selector-title" style="margin-bottom:0; color: var(--accent-gold, #e5c158);">⭐ Player Name Edition (Back)</h4>
+              <span class="badge" style="background: #e5c158; color: #000; font-weight:700; padding: 3px 8px; border-radius: 4px; font-size:11px;">Included on Back</span>
+            </div>
+            <p class="fee-note" style="margin-top:6px;">This kit comes pre-printed with the official player name & number on the back.</p>
+          </div>
+          `}
 
           <div class="detail-price-box">
-            <span class="label">Total Price:</span>
-            <span class="detail-price" id="detail-total-price">${formatPrice(getCombinedPrice())}</span>
+            <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;">
+              <span class="label">Jersey Price:</span>
+              <span class="detail-price" id="detail-total-price">${formatPrice(getCombinedPrice())}</span>
+            </div>
+            <div style="margin-top:8px; font-size:0.82rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:3px;">
+              ${!jersey.has_name_behind ? `<span>✏️ + ${formatPrice(FEES.namePrinting)} custom name printing (if added)</span>` : ''}
+              <span>🚚 + ${formatPrice(FEES.delivery)} shipping (flat rate)</span>
+            </div>
           </div>
 
           <button class="btn btn-primary btn-block" id="add-to-cart-btn">Add to Cart Bag</button>
@@ -705,10 +737,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Live Name printing text listener
       const nameInput = document.getElementById('name-print-input');
-      nameInput.addEventListener('input', (e) => {
-        printNameText = e.target.value.toUpperCase();
-        updatePriceDisplay();
-      });
+      if (nameInput) {
+        nameInput.addEventListener('input', (e) => {
+          printNameText = e.target.value.toUpperCase();
+          updatePriceDisplay();
+        });
+      }
 
       // Add to Cart Bag action listener
       document.getElementById('add-to-cart-btn').addEventListener('click', () => {
@@ -896,32 +930,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Calculate Summary totals
     let itemsSubtotal = 0;
-    let namePrintTotal = 0;
+    let namePrintCount = 0;
     state.cart.forEach(item => {
       itemsSubtotal += item.price * item.quantity;
       if (item.name_text && item.name_text.trim()) {
-        namePrintTotal += FEES.namePrinting * item.quantity;
+        namePrintCount += item.quantity;
       }
     });
 
+    const namePrintTotal = namePrintCount * FEES.namePrinting;
     const deliveryTotal = FEES.delivery;
     const finalTotal = itemsSubtotal + namePrintTotal + deliveryTotal;
 
     summary.innerHTML = `
-      <div class="row">
-        <span>Subtotal (Base Jerseys)</span>
-        <span>${formatPrice(itemsSubtotal)}</span>
+      <div class="bill-section">
+        <div class="row">
+          <span>Jerseys Subtotal</span>
+          <span>${formatPrice(itemsSubtotal)}</span>
+        </div>
+        ${namePrintCount > 0 ? `
+        <div class="row">
+          <span>Custom Printing <small style="color:var(--accent-gold);font-size:0.78em;">(${namePrintCount} × ${formatPrice(FEES.namePrinting)})</small></span>
+          <span>${formatPrice(namePrintTotal)}</span>
+        </div>` : ''}
+        <div class="row">
+          <span>🚚 Shipping</span>
+          <span>${formatPrice(deliveryTotal)}</span>
+        </div>
       </div>
-      <div class="row">
-        <span>Custom Name Printing</span>
-        <span>${formatPrice(namePrintTotal)}</span>
-      </div>
-      <div class="row">
-        <span>Delivery Flat Fee</span>
-        <span>${formatPrice(deliveryTotal)}</span>
-      </div>
-      <div class="row total">
-        <span>Order Total</span>
+      <div class="row total" style="margin-top:4px;">
+        <span>Grand Total</span>
         <span>${formatPrice(finalTotal)}</span>
       </div>
       <button class="btn btn-primary btn-block" style="margin-top:24px;" id="proceed-to-checkout-btn">Checkout Securely</button>
@@ -948,6 +986,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const deliveryTotal = FEES.delivery;
     const finalTotal = itemsSubtotal + namePrintTotal + deliveryTotal;
+    const namePrintCount = state.cart.reduce((acc, item) => {
+      return acc + ((item.name_text && item.name_text.trim()) ? item.quantity : 0);
+    }, 0);
 
     const checkoutCountrySelect = document.getElementById('checkout-country');
     if (checkoutCountrySelect && state.country) {
@@ -956,29 +997,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     container.innerHTML = `
       <div class="checkout-summary-box" style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:16px; padding:24px; box-shadow:var(--card-shadow); margin-bottom:24px;">
+        <h4 style="margin:0 0 16px; font-size:1rem; color:var(--text-primary); border-bottom:1px solid var(--border-color); padding-bottom:12px;">🧾 Order Summary</h4>
         <div style="border-bottom:1px solid var(--border-color); padding-bottom:16px; margin-bottom:16px;">
           ${state.cart.map(item => `
-            <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:10px;">
-              <span style="color:var(--text-primary); font-weight:500;">${item.name} (${item.size}) x${item.quantity}</span>
-              <span style="color:var(--accent-gold); font-weight:600;">${formatPrice((item.price + (item.name_text ? FEES.namePrinting : 0)) * item.quantity)}</span>
+            <div style="display:flex; justify-content:space-between; font-size:0.88rem; margin-bottom:10px; gap:8px;">
+              <span style="color:var(--text-primary); font-weight:500; flex:1;">${item.name} <span style="opacity:0.6;">(${item.version} / ${item.size})</span> ×${item.quantity}${item.name_text ? ` <span style="color:var(--accent-gold);font-size:0.8em;">+ print</span>` : ''}</span>
+              <span style="color:var(--accent-gold); font-weight:600; white-space:nowrap;">${formatPrice((item.price + (item.name_text ? FEES.namePrinting : 0)) * item.quantity)}</span>
             </div>
           `).join('')}
         </div>
-        <div class="row" style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.9rem; color:var(--text-secondary);">
-          <span>Items Subtotal</span>
-          <span>${formatPrice(itemsSubtotal)}</span>
-        </div>
-        <div class="row" style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.9rem; color:var(--text-secondary);">
-          <span>Name Printing Fee</span>
-          <span>${formatPrice(namePrintTotal)}</span>
-        </div>
-        <div class="row" style="display:flex; justify-content:space-between; margin-bottom:16px; font-size:0.9rem; color:var(--text-secondary);">
-          <span>Flat Delivery Fee</span>
-          <span>${formatPrice(deliveryTotal)}</span>
-        </div>
-        <div class="row total" style="display:flex; justify-content:space-between; font-size:1.25rem; font-weight:700; border-top:1px solid var(--border-color); padding-top:16px; color:var(--text-primary);">
-          <span>Final Total</span>
-          <span style="color:var(--accent-gold);">${formatPrice(finalTotal)}</span>
+        <div style="display:flex; flex-direction:column; gap:8px; font-size:0.9rem;">
+          <div style="display:flex; justify-content:space-between; color:var(--text-secondary);">
+            <span>Jerseys Subtotal</span>
+            <span>${formatPrice(itemsSubtotal)}</span>
+          </div>
+          ${namePrintCount > 0 ? `
+          <div style="display:flex; justify-content:space-between; color:var(--text-secondary);">
+            <span>✏️ Custom Printing <small style="color:var(--accent-gold);">(${namePrintCount} × ${formatPrice(FEES.namePrinting)})</small></span>
+            <span>${formatPrice(namePrintTotal)}</span>
+          </div>` : ''}
+          <div style="display:flex; justify-content:space-between; color:var(--text-secondary);">
+            <span>🚚 Shipping</span>
+            <span>${formatPrice(deliveryTotal)}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:1.2rem; font-weight:700; border-top:1px solid var(--border-color); padding-top:14px; margin-top:6px; color:var(--text-primary);">
+            <span>Grand Total</span>
+            <span style="color:var(--accent-gold);">${formatPrice(finalTotal)}</span>
+          </div>
         </div>
       </div>
     `;
@@ -1654,14 +1699,20 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '<div class="cart-empty"><p style="margin-bottom:12px;">No orders yet.</p><p style="color:var(--gray);font-size:0.9rem;">When you place an order, it will appear here.</p></div>';
         return;
       }
-      const orderCards = state.userOrders.map(o =>
-        '<div class="confirmation-card" style="text-align:left;padding:28px;margin:16px 0;">' +
-        '<div class="confirmation-details" style="border:none;padding:0;margin:0;">' +
-        '<div class="row"><span>Order #' + o.id + '</span><span style="color:var(--green);text-transform:uppercase;">' + o.status + '</span></div>' +
-        '<div class="row"><span>$' + o.total.toFixed(2) + '</span><span>' + new Date(o.created_at).toLocaleDateString() + '</span></div>' +
-        '<div class="row" style="margin-bottom:0;"><span>Items</span><span>' + o.item_count + '</span></div>' +
-        '</div></div>'
-      ).join('');
+      const orderCards = state.userOrders.map(o => {
+        const printFee = Number(o.name_printing_fee || 0);
+        const shipFee = Number(o.delivery_fee || 5);
+        const subtotal = Number(o.subtotal || 0);
+        return '<div class="confirmation-card" style="text-align:left;padding:28px;margin:16px 0;">' +
+          '<div class="confirmation-details" style="border:none;padding:0;margin:0;">' +
+          '<div class="row"><span>Order #' + o.id + '</span><span style="color:var(--green);text-transform:uppercase;">' + o.status + '</span></div>' +
+          (subtotal > 0 ? '<div class="row"><span>Jerseys</span><span>€' + subtotal.toFixed(2) + '</span></div>' : '') +
+          (printFee > 0 ? '<div class="row"><span>✏️ Custom Printing</span><span>€' + printFee.toFixed(2) + '</span></div>' : '') +
+          '<div class="row"><span>🚚 Shipping</span><span>€' + shipFee.toFixed(2) + '</span></div>' +
+          '<div class="row" style="font-weight:700;"><span>Grand Total</span><span style="color:var(--accent-gold);">€' + Number(o.total).toFixed(2) + '</span></div>' +
+          '<div class="row" style="margin-bottom:0;"><span>' + new Date(o.created_at).toLocaleDateString() + '</span><span>' + o.item_count + ' item(s)</span></div>' +
+          '</div></div>';
+      }).join('');
       container.innerHTML = orderCards;
     });
   }
@@ -1699,10 +1750,10 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadAdminDashboard() {
     try {
       const summary = await apiGet('/api/admin/sales/summary');
-      document.getElementById('stat-today-rev').textContent = '$' + Number(summary.today?.revenue_today || 0).toFixed(2);
+      document.getElementById('stat-today-rev').textContent = '€' + Number(summary.today?.revenue_today || 0).toFixed(2);
       document.getElementById('stat-today-orders').textContent = summary.today?.orders_today || 0;
-      document.getElementById('stat-month-rev').textContent = '$' + Number(summary.thisMonth?.revenue_month || 0).toFixed(2);
-      document.getElementById('stat-total-rev').textContent = '$' + Number(summary.total?.total_revenue || 0).toFixed(2);
+      document.getElementById('stat-month-rev').textContent = '€' + Number(summary.thisMonth?.revenue_month || 0).toFixed(2);
+      document.getElementById('stat-total-rev').textContent = '€' + Number(summary.total?.total_revenue || 0).toFixed(2);
       document.getElementById('stat-total-orders').textContent = summary.total?.total_orders || 0;
       document.getElementById('stat-pending').textContent = summary.pendingOrders || 0;
 
@@ -1737,7 +1788,7 @@ document.addEventListener('DOMContentLoaded', () => {
         plugins: { legend: { labels: { color: '#aaa' } } },
         scales: {
           x: { ticks: { color: '#666' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-          y: { ticks: { color: '#666', callback: v => '$' + v }, grid: { color: 'rgba(255,255,255,0.05)' } }
+          y: { ticks: { color: '#666', callback: v => '€' + v }, grid: { color: 'rgba(255,255,255,0.05)' } }
         }
       }
     });
@@ -1779,8 +1830,12 @@ document.addEventListener('DOMContentLoaded', () => {
       container.innerHTML = '<div class="cart-empty"><p>No orders yet.</p></div>';
       return;
     }
-    container.innerHTML = '<div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>ID</th><th>Customer</th><th>Total</th><th>Status</th><th>Payment</th><th>Date</th></tr></thead><tbody>' +
-      orders.map(o => '<tr><td>#' + o.id + '</td><td>' + (o.customer_name || 'Guest') + '</td><td>$' + Number(o.total).toFixed(2) + '</td>' +
+    container.innerHTML = '<div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>ID</th><th>Customer</th><th>Subtotal</th><th>Printing</th><th>Shipping</th><th>Total</th><th>Status</th><th>Payment</th><th>Date</th></tr></thead><tbody>' +
+      orders.map(o => '<tr><td>#' + o.id + '</td><td>' + (o.customer_name || 'Guest') + '</td>' +
+      '<td>€' + Number(o.subtotal || 0).toFixed(2) + '</td>' +
+      '<td>' + (Number(o.name_printing_fee || 0) > 0 ? '€' + Number(o.name_printing_fee).toFixed(2) : '—') + '</td>' +
+      '<td>€' + Number(o.delivery_fee || 5).toFixed(2) + '</td>' +
+      '<td style="font-weight:700;color:var(--accent-gold);">€' + Number(o.total).toFixed(2) + '</td>' +
       '<td style="color:var(--green);text-transform:uppercase;">' + o.status + '</td>' +
       '<td style="text-transform:uppercase;">' + o.payment_status + '</td>' +
       '<td>' + new Date(o.created_at).toLocaleDateString() + '</td></tr>').join('') +

@@ -131,6 +131,7 @@ async function initialize() {
         type TEXT,
         description TEXT,
         featured INTEGER DEFAULT 0,
+        has_name_behind INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       );
       CREATE TABLE IF NOT EXISTS jersey_images (
@@ -213,6 +214,15 @@ async function initialize() {
       );
     `);
 
+    // Fix type check constraint to include all valid jersey types
+    try {
+      await pgPool.query('ALTER TABLE jerseys DROP CONSTRAINT IF EXISTS jerseys_type_check');
+      await pgPool.query(`ALTER TABLE jerseys ADD CONSTRAINT jerseys_type_check CHECK (type IN ('home','away','third','special','retro','training','tracksuit'))`);
+    } catch(e) { /* constraint may already be correct */ }
+
+    // Ensure has_name_behind column exists
+    try { await pgPool.query('ALTER TABLE jerseys ADD COLUMN has_name_behind INTEGER DEFAULT 0'); } catch(e){}
+
     // Ensure admin exists in PG
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@kickoff.com';
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
@@ -222,11 +232,6 @@ async function initialize() {
       const hash = await bcrypt.hash(adminPassword, 10);
       await pgPool.query('INSERT INTO customers (name, email, password_hash, is_admin) VALUES ($1, $2, $3, 1)', ['Admin', adminEmail, hash]);
     }
-    // Normalize variant pricing rules: Fan = €20, Player = €25, Retro = €25
-    await pgPool.query("UPDATE variants SET price = 20 WHERE version = 'fan'");
-    await pgPool.query("UPDATE variants SET price = 25 WHERE version = 'player'");
-    await pgPool.query("UPDATE variants SET price = 25 WHERE version = 'retro'");
-    await pgPool.query("UPDATE jerseys SET featured = 1 WHERE id IN (SELECT id FROM jerseys ORDER BY id LIMIT 36)");
     return;
   }
 
@@ -253,9 +258,11 @@ async function initialize() {
       type TEXT,
       description TEXT,
       featured INTEGER DEFAULT 0,
+      has_name_behind INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
+  try { d.exec('ALTER TABLE jerseys ADD COLUMN has_name_behind INTEGER DEFAULT 0'); } catch(e){}
 
   d.exec(`
     CREATE TABLE IF NOT EXISTS jersey_images (
@@ -378,6 +385,10 @@ async function initialize() {
   d.exec("UPDATE variants SET price = 25 WHERE version = 'player'");
   d.exec("UPDATE variants SET price = 25 WHERE version = 'retro'");
   d.exec("UPDATE jerseys SET featured = 1 WHERE id IN (SELECT id FROM jerseys ORDER BY id LIMIT 36)");
+  d.exec("UPDATE jerseys SET season = '2025-26' WHERE id IN (SELECT id FROM jerseys WHERE season LIKE '%2023%' OR season LIKE '%2022%' OR season = '' OR season IS NULL LIMIT 40)");
+  d.exec("UPDATE jerseys SET type = 'training', name = REPLACE(name, 'Home Kit', 'Training Kit') WHERE id IN (SELECT id FROM jerseys WHERE id % 10 = 3 LIMIT 12)");
+  d.exec("UPDATE jerseys SET type = 'tracksuit', name = REPLACE(name, 'Home Kit', 'Full Tracksuit') WHERE id IN (SELECT id FROM jerseys WHERE id % 10 = 7 LIMIT 12)");
+  d.exec("UPDATE jerseys SET type = 'third' WHERE id IN (SELECT id FROM jerseys WHERE id % 10 = 5 LIMIT 15)");
 }
 
 async function getClient() {

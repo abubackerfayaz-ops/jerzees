@@ -3,3 +3,9 @@ node_modules/
 data/store.sqlite
 data/store.sqlite-wal
 data/store.sqlite-shm
+
+# Helper/diagnostic scripts
+check_pg_schema.js
+scrape_yupoo.js
+sync_sqlite_to_pg.js
+migrate_to_sqlite.js
