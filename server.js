@@ -2,6 +2,7 @@ require('dotenv').config({ path: __dirname + '/.env' });
 
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const https = require('https');
@@ -1152,7 +1153,14 @@ app.get('/api/admin/sales/summary', adminRequired, async (req, res) => {
   }
 });
 
-// ─── IMAGE PROXY (bypasses hotlink protection on Yupoo / external hosts) ─────
+// ─── IMAGE PROXY + LOCAL CACHE ──────────────────────────────────────────────
+
+const IMAGE_CACHE_DIR = path.join(__dirname, 'data', 'images');
+
+function getCachedImagePath(url) {
+  const hash = crypto.createHash('md5').update(url).digest('hex');
+  return path.join(IMAGE_CACHE_DIR, hash);
+}
 
 app.get('/api/img-proxy', (req, res) => {
   const { url } = req.query;
@@ -1161,12 +1169,20 @@ app.get('/api/img-proxy', (req, res) => {
   let target;
   try { target = new URL(url); } catch { return res.status(400).send('invalid url'); }
 
-  // Only proxy known image hosts
   const allowed = ['photo.yupoo.com', 'images.footballfanatics.com', 'classicfootballshirts.co.uk', 'assets.adidas.com', 'upload.wikimedia.org'];
   if (!allowed.some(h => target.hostname === h || target.hostname.endsWith('.' + h))) {
     return res.status(403).send('host not allowed');
   }
 
+  const cachedPath = getCachedImagePath(url);
+  const ext = path.extname(target.pathname).split('?')[0] || '.jpg';
+
+  // Serve from local cache if available
+  if (fs.existsSync(cachedPath)) {
+    return res.sendFile(cachedPath);
+  }
+
+  // Download and cache
   const mod = target.protocol === 'https:' ? https : http;
   const options = {
     hostname : target.hostname,
@@ -1179,7 +1195,6 @@ app.get('/api/img-proxy', (req, res) => {
   };
 
   const proxy = mod.get(options, upstream => {
-    // Follow one redirect
     if ((upstream.statusCode === 301 || upstream.statusCode === 302) && upstream.headers.location) {
       const loc = upstream.headers.location;
       upstream.destroy();
@@ -1189,10 +1204,18 @@ app.get('/api/img-proxy', (req, res) => {
       upstream.destroy();
       return res.status(upstream.statusCode).send('upstream error');
     }
-    res.setHeader('Content-Type', upstream.headers['content-type'] || 'image/jpeg');
+
+    const contentType = upstream.headers['content-type'] || 'image/jpeg';
+    res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    upstream.on('error', () => { if (!res.headersSent) res.status(502).send('upstream stream error'); });
+
+    // Save to disk while streaming to client
+    if (!fs.existsSync(IMAGE_CACHE_DIR)) fs.mkdirSync(IMAGE_CACHE_DIR, { recursive: true });
+    const fileStream = fs.createWriteStream(cachedPath);
+    upstream.pipe(fileStream);
     upstream.pipe(res);
+    upstream.on('error', () => { fileStream.close(); if (!res.headersSent) res.status(502).send('upstream stream error'); });
+    fileStream.on('error', () => { upstream.destroy(); if (!res.headersSent) res.status(500).send('cache write error'); });
   });
   proxy.setTimeout(8000, () => { proxy.destroy(); if (!res.headersSent) res.status(504).send('upstream timeout'); });
   proxy.on('error', err => { console.error('img-proxy err:', err.message); if (!res.headersSent) res.status(502).send('proxy error'); });
