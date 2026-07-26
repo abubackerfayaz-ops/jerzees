@@ -1,5 +1,11 @@
+const https = require('https');
 const twilio = require('twilio');
 
+// Telegram config (free)
+const TG_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TG_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+
+// Twilio config (paid fallback)
 const ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 const AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const FROM_SMS = process.env.TWILIO_PHONE_NUMBER;
@@ -18,7 +24,6 @@ if (ACCOUNT_SID && AUTH_TOKEN && !ACCOUNT_SID.includes('XXXXX')) {
   }
 }
 
-// Track sent order IDs to prevent duplicate notifications
 const notifiedOrders = new Set();
 
 function formatNotificationMessage(orderData) {
@@ -47,7 +52,7 @@ Club: ${club}
 Season: ${season}
 Type: ${versionLabel}
 Size: ${item.size}
-Quantity: ${item.quantity}
+Qty: ${item.quantity}
 Player Name: ${playerName}`;
   }).join('\n\n');
 
@@ -58,28 +63,46 @@ Player Name: ${playerName}`;
 Order ID: ORD-${orderId}
 Order Time: ${formattedTime}
 
-Customer:
-${customerName || 'N/A'}
-
-Phone:
-${phone || 'N/A'}
-
-Email:
-${email || 'N/A'}
-
-Country:
-${country || 'N/A'}
-
-Address:
-${address || 'N/A'}
+Customer: ${customerName || 'N/A'}
+Phone: ${phone || 'N/A'}
+Email: ${email || 'N/A'}
+Country: ${country || 'N/A'}
+Address: ${address || 'N/A'}
 
 ${itemDetails}
 
-Total:
-${currencySymbol}${typeof total === 'number' ? total.toFixed(2) : total}
+Total: ${currencySymbol}${typeof total === 'number' ? total.toFixed(2) : total}
+Payment: ${paymentStatus || 'Paid'}`;
+}
 
-Payment:
-${paymentStatus || 'Paid'}`;
+function tgRequest(path) {
+  return new Promise((resolve, reject) => {
+    const url = `https://api.telegram.org/bot${TG_BOT_TOKEN}${path}`;
+    https.get(url, res => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); } catch { resolve({ ok: false }); }
+      });
+    }).on('error', reject);
+  });
+}
+
+async function sendTelegram(message) {
+  if (!TG_BOT_TOKEN || !TG_CHAT_ID) return false;
+  try {
+    const text = encodeURIComponent(message);
+    const result = await tgRequest(`/sendMessage?chat_id=${TG_CHAT_ID}&text=${text}`);
+    if (result.ok) {
+      console.log(`[Notification] Telegram sent to chat ${TG_CHAT_ID}`);
+      return true;
+    }
+    console.warn('[Notification] Telegram failed:', result.description || 'unknown');
+    return false;
+  } catch (err) {
+    console.warn('[Notification] Telegram error:', err.message);
+    return false;
+  }
 }
 
 async function sendWhatsApp(message) {
@@ -126,22 +149,26 @@ async function notifyOrder(orderData) {
 
   const orderIdKey = String(orderData.orderId);
   if (notifiedOrders.has(orderIdKey)) {
-    console.log(`[Notification] Order #${orderIdKey} notification already sent. Skipping duplicate.`);
+    console.log(`[Notification] Order #${orderIdKey} already notified. Skipping.`);
     return;
   }
   notifiedOrders.add(orderIdKey);
 
   const message = formatNotificationMessage(orderData);
-  console.log(`\n--- [ORDER NOTIFICATION PAYLOAD SENT TO ${TO_NUMBERS.join(', ')}] ---`);
+  console.log(`\n--- [ORDER NOTIFICATION - ORD-${orderIdKey}] ---`);
   console.log(message);
-  console.log('-------------------------------------------------------------------\n');
+  console.log('-----------------------------------------------\n');
 
-  // Priority 1: WhatsApp Business API / Twilio WhatsApp
+  // Priority 1: Telegram (free)
+  const tgSuccess = await sendTelegram(message);
+  if (tgSuccess) return;
+
+  // Priority 2: WhatsApp (paid)
   const waSuccess = await sendWhatsApp(message);
-  if (!waSuccess) {
-    // Priority 2: SMS API
-    await sendSMS(message);
-  }
+  if (waSuccess) return;
+
+  // Priority 3: SMS (paid)
+  await sendSMS(message);
 }
 
 module.exports = { notifyOrder, formatNotificationMessage };
