@@ -10,7 +10,7 @@ const http = require('http');
 const db = require('./database');
 
 let stripe = null;
-if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY.startsWith('sk_')) {
+if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY.startsWith('sk_') && !process.env.STRIPE_SECRET_KEY.includes('XXXX')) {
   stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 }
 const { notifyOrder } = require('./notifications');

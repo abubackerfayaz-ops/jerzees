@@ -1062,25 +1062,33 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     try {
-      // Try Stripe Checkout first if configured
-      const stripeRes = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-session-id': state.sessionId },
-        body: JSON.stringify(orderData)
-      });
-
-      const stripeResult = await stripeRes.json();
-
-      if (stripeRes.ok && stripeResult.url) {
-        state.cart = [];
-        saveCart();
-        updateCartCount();
-        checkoutForm.reset();
-        window.location.href = stripeResult.url;
-        return;
+      // Check if Stripe is configured (cached after first check)
+      if (state.stripeConfigured === undefined) {
+        try {
+          const cfg = await fetch('/api/stripe-config');
+          const cfgData = await cfg.json();
+          state.stripeConfigured = cfgData.configured;
+        } catch { state.stripeConfigured = false; }
       }
 
-      // Legacy direct order placement
+      if (state.stripeConfigured) {
+        const stripeRes = await fetch('/api/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-session-id': state.sessionId },
+          body: JSON.stringify(orderData)
+        });
+        const stripeResult = await stripeRes.json();
+        if (stripeRes.ok && stripeResult.url) {
+          state.cart = [];
+          saveCart();
+          updateCartCount();
+          checkoutForm.reset();
+          window.location.href = stripeResult.url;
+          return;
+        }
+      }
+
+      // Direct order placement
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-session-id': state.sessionId },
