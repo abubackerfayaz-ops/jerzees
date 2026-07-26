@@ -4,7 +4,10 @@ const ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 const AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const FROM_SMS = process.env.TWILIO_PHONE_NUMBER;
 const FROM_WHATSAPP = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
-const TO_NUMBER = process.env.NOTIFY_PHONE || '+8613418092985';
+const TO_NUMBERS = [
+  process.env.NOTIFY_PHONE || '+8613418092985',
+  '+919987199973',
+];
 
 let client = null;
 if (ACCOUNT_SID && AUTH_TOKEN && !ACCOUNT_SID.includes('XXXXX')) {
@@ -81,35 +84,41 @@ ${paymentStatus || 'Paid'}`;
 
 async function sendWhatsApp(message) {
   if (!client || !FROM_WHATSAPP) return false;
-  try {
-    const target = TO_NUMBER.startsWith('whatsapp:') ? TO_NUMBER : `whatsapp:${TO_NUMBER}`;
-    await client.messages.create({
-      body: message,
-      from: FROM_WHATSAPP,
-      to: target,
-    });
-    console.log(`[Notification] WhatsApp notification sent to ${target}`);
-    return true;
-  } catch (err) {
-    console.warn('[Notification] WhatsApp sending standard check (credentials/opt-in needed):', err.message);
-    return false;
+  let anySuccess = false;
+  for (const num of TO_NUMBERS) {
+    try {
+      const target = num.startsWith('whatsapp:') ? num : `whatsapp:${num}`;
+      await client.messages.create({
+        body: message,
+        from: FROM_WHATSAPP,
+        to: target,
+      });
+      console.log(`[Notification] WhatsApp sent to ${target}`);
+      anySuccess = true;
+    } catch (err) {
+      console.warn(`[Notification] WhatsApp to ${num} failed:`, err.message);
+    }
   }
+  return anySuccess;
 }
 
 async function sendSMS(message) {
   if (!client || !FROM_SMS) return false;
-  try {
-    await client.messages.create({
-      body: message,
-      from: FROM_SMS,
-      to: TO_NUMBER,
-    });
-    console.log(`[Notification] SMS notification sent to ${TO_NUMBER}`);
-    return true;
-  } catch (err) {
-    console.warn('[Notification] SMS sending standard check (credentials needed):', err.message);
-    return false;
+  let anySuccess = false;
+  for (const num of TO_NUMBERS) {
+    try {
+      await client.messages.create({
+        body: message,
+        from: FROM_SMS,
+        to: num,
+      });
+      console.log(`[Notification] SMS sent to ${num}`);
+      anySuccess = true;
+    } catch (err) {
+      console.warn(`[Notification] SMS to ${num} failed:`, err.message);
+    }
   }
+  return anySuccess;
 }
 
 async function notifyOrder(orderData) {
@@ -123,7 +132,7 @@ async function notifyOrder(orderData) {
   notifiedOrders.add(orderIdKey);
 
   const message = formatNotificationMessage(orderData);
-  console.log('\n--- [ORDER NOTIFICATION PAYLOAD SENT TO +86 134 1809 2985] ---');
+  console.log(`\n--- [ORDER NOTIFICATION PAYLOAD SENT TO ${TO_NUMBERS.join(', ')}] ---`);
   console.log(message);
   console.log('-------------------------------------------------------------------\n');
 
