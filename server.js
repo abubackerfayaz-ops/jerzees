@@ -717,12 +717,34 @@ app.post('/api/checkout', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const cartItems = await db.all(
+    let cartItems = await db.all(
       `SELECT ci.*, v.version, v.size, v.price, v.stock, v.jersey_id
        FROM cart_items ci JOIN variants v ON ci.variant_id = v.id
        WHERE ci.session_id = $1`,
       [req.sessionId]
     );
+
+    // Fallback: if DB cart is empty, use items from request body
+    if (!cartItems.length && req.body.items && req.body.items.length) {
+      cartItems = [];
+      for (const item of req.body.items) {
+        const variant = await db.get(
+          'SELECT v.*, v.jersey_id FROM variants v WHERE v.jersey_id = $1 AND v.version = $2 AND v.size = $3 AND v.active = 1',
+          [item.jersey_id, item.version, item.size]
+        );
+        if (!variant) continue;
+        cartItems.push({
+          variant_id: variant.id,
+          jersey_id: variant.jersey_id,
+          version: variant.version,
+          size: variant.size,
+          price: variant.price,
+          stock: variant.stock,
+          quantity: item.quantity || 1,
+          name_text: item.name_text || null,
+        });
+      }
+    }
 
     if (!cartItems.length) return res.status(400).json({ error: 'Cart is empty' });
 

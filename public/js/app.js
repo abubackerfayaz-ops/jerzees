@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     userOrders: [],
     currency: localStorage.getItem('selected_currency') || 'EUR',
     country: localStorage.getItem('selected_country') || 'Germany',
+    sessionId: localStorage.getItem('session_id') || (function() { const id = crypto.randomUUID(); localStorage.setItem('session_id', id); return id; })(),
     exchangeRates: { EUR: 1.0, USD: 1.08, GBP: 0.85, CAD: 1.48, AUD: 1.65, JPY: 165.0, INR: 90.0, AED: 3.97, SAR: 4.05, CHF: 0.96, BRL: 6.0, MXN: 20.0 },
     currencySymbols: { EUR: '€', USD: '$', GBP: '£', CAD: 'CA$', AUD: 'A$', JPY: '¥', INR: '₹', AED: 'AED ', SAR: 'SAR ', CHF: 'CHF ', BRL: 'R$', MXN: 'MEX$' },
     activeCategory: 'all'
@@ -52,7 +53,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Auth helpers
   function getAuthHeaders() {
-    return state.token ? { 'Authorization': 'Bearer ' + state.token } : {};
+    return {
+      'x-session-id': state.sessionId,
+      ...(state.token ? { 'Authorization': 'Bearer ' + state.token } : {})
+    };
   }
 
   async function apiPost(url, data, useAuth = true) {
@@ -1061,7 +1065,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Try Stripe Checkout first if configured
       const stripeRes = await fetch('/api/create-checkout-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-session-id': state.sessionId },
         body: JSON.stringify(orderData)
       });
 
@@ -1079,7 +1083,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Legacy direct order placement
       const response = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-session-id': state.sessionId },
         body: JSON.stringify(orderData)
       });
 
