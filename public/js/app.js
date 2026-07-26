@@ -346,7 +346,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   // Navigation & Routing System
-  const navLinks = document.querySelectorAll('nav a, .logo, .btn-browse, .section-link, #nav-cart-btn');
+  const navLinks = document.querySelectorAll('[data-page]');
   navLinks.forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
