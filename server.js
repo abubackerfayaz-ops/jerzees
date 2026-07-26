@@ -1191,9 +1191,11 @@ app.get('/api/img-proxy', (req, res) => {
     }
     res.setHeader('Content-Type', upstream.headers['content-type'] || 'image/jpeg');
     res.setHeader('Cache-Control', 'public, max-age=86400');
+    upstream.on('error', () => { if (!res.headersSent) res.status(502).send('upstream stream error'); });
     upstream.pipe(res);
   });
-  proxy.on('error', err => { console.error('img-proxy err:', err.message); res.status(502).send('proxy error'); });
+  proxy.setTimeout(8000, () => { proxy.destroy(); if (!res.headersSent) res.status(504).send('upstream timeout'); });
+  proxy.on('error', err => { console.error('img-proxy err:', err.message); if (!res.headersSent) res.status(502).send('proxy error'); });
 });
 
 // ─── SPA FALLBACK & ERROR HANDLER ─────────────────────────────────────────
