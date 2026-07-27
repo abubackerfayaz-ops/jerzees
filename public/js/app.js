@@ -17,7 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
     sessionId: localStorage.getItem('session_id') || (function() { const id = crypto.randomUUID(); localStorage.setItem('session_id', id); return id; })(),
     exchangeRates: { EUR: 1.0, USD: 1.08, GBP: 0.85, CAD: 1.48, AUD: 1.65, JPY: 165.0, INR: 90.0, AED: 3.97, SAR: 4.05, CHF: 0.96, BRL: 6.0, MXN: 20.0 },
     currencySymbols: { EUR: '€', USD: '$', GBP: '£', CAD: 'CA$', AUD: 'A$', JPY: '¥', INR: '₹', AED: 'AED ', SAR: 'SAR ', CHF: 'CHF ', BRL: 'R$', MXN: 'MEX$' },
-    activeCategory: 'all'
+    activeCategory: 'all',
+    pendingCheckout: false
   };
 
   const COUNTRY_MAP = {
@@ -143,6 +144,10 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAuthModal();
     updateAuthUI();
     syncCartToServer();
+    if (state.pendingCheckout) {
+      state.pendingCheckout = false;
+      navigateTo('checkout');
+    }
     return true;
   }
 
@@ -159,6 +164,10 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAuthModal();
     updateAuthUI();
     syncCartToServer();
+    if (state.pendingCheckout) {
+      state.pendingCheckout = false;
+      navigateTo('checkout');
+    }
     return true;
   }
 
@@ -400,10 +409,10 @@ document.addEventListener('DOMContentLoaded', () => {
       loadJerseyDetail(params.jerseyId);
     } else if (page === 'cart') {
       renderCart();
-    } else if (page === 'checkout') {
+    } else     if (page === 'checkout') {
       if (!state.token) {
-        alert('Please log in to continue with checkout.');
         openAuthModal('login');
+        state.pendingCheckout = true;
         navigateTo('cart');
         return;
       }
