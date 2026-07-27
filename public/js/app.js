@@ -401,6 +401,12 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (page === 'cart') {
       renderCart();
     } else if (page === 'checkout') {
+      if (!state.token) {
+        alert('Please log in to continue with checkout.');
+        openAuthModal('login');
+        navigateTo('cart');
+        return;
+      }
       renderCheckoutSummary();
     } else if (page === 'profile') {
       renderProfilePage();
@@ -1085,7 +1091,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (state.stripeConfigured) {
         const stripeRes = await fetch('/api/create-checkout-session', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-session-id': state.sessionId },
+          headers: { 'Content-Type': 'application/json', 'x-session-id': state.sessionId, ...getAuthHeaders() },
           body: JSON.stringify(orderData)
         });
         const stripeResult = await stripeRes.json();
@@ -1102,7 +1108,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Direct order placement
       const response = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-session-id': state.sessionId },
+        headers: { 'Content-Type': 'application/json', 'x-session-id': state.sessionId, ...getAuthHeaders() },
         body: JSON.stringify(orderData)
       });
 

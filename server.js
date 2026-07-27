@@ -315,7 +315,7 @@ app.get('/api/stripe-config', (req, res) => {
 });
 
 // Create Stripe Checkout Session for a new order
-app.post('/api/create-checkout-session', async (req, res) => {
+app.post('/api/create-checkout-session', authRequired, async (req, res) => {
   if (!stripe) return res.status(503).json({ error: 'Stripe not configured. Use the legacy checkout endpoint /api/orders instead.' });
   try {
     const { customer_name, email, phone, address, notes, items } = req.body;
@@ -710,7 +710,7 @@ app.post('/api/cart/clear', async (req, res) => {
 
 // ─── CHECKOUT (convert cart → order) ─────────────────────────────────────────
 
-app.post('/api/checkout', async (req, res) => {
+app.post('/api/checkout', authRequired, async (req, res) => {
   try {
     const { customer_name, email, phone, address, country, notes, currency_symbol } = req.body;
     if (!customer_name || !email || !address) {
