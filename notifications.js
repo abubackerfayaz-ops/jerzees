@@ -3,7 +3,7 @@ const twilio = require('twilio');
 
 // Telegram config (free)
 const TG_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TG_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+const TG_CHAT_IDS = (process.env.TELEGRAM_CHAT_ID || '').split(',').map(s => s.trim()).filter(Boolean);
 
 // Twilio config (paid fallback)
 const ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
@@ -89,20 +89,23 @@ function tgRequest(path) {
 }
 
 async function sendTelegram(message) {
-  if (!TG_BOT_TOKEN || !TG_CHAT_ID) return false;
-  try {
-    const text = encodeURIComponent(message);
-    const result = await tgRequest(`/sendMessage?chat_id=${TG_CHAT_ID}&text=${text}`);
-    if (result.ok) {
-      console.log(`[Notification] Telegram sent to chat ${TG_CHAT_ID}`);
-      return true;
+  if (!TG_BOT_TOKEN || !TG_CHAT_IDS.length) return false;
+  let anySuccess = false;
+  for (const chatId of TG_CHAT_IDS) {
+    try {
+      const text = encodeURIComponent(message);
+      const result = await tgRequest(`/sendMessage?chat_id=${chatId}&text=${text}`);
+      if (result.ok) {
+        console.log(`[Notification] Telegram sent to chat ${chatId}`);
+        anySuccess = true;
+      } else {
+        console.warn(`[Notification] Telegram to ${chatId} failed:`, result.description || 'unknown');
+      }
+    } catch (err) {
+      console.warn(`[Notification] Telegram to ${chatId} error:`, err.message);
     }
-    console.warn('[Notification] Telegram failed:', result.description || 'unknown');
-    return false;
-  } catch (err) {
-    console.warn('[Notification] Telegram error:', err.message);
-    return false;
   }
+  return anySuccess;
 }
 
 async function sendWhatsApp(message) {
