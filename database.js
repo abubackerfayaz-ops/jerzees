@@ -223,6 +223,75 @@ async function initialize() {
     // Ensure has_name_behind column exists
     try { await pgPool.query('ALTER TABLE jerseys ADD COLUMN has_name_behind INTEGER DEFAULT 0'); } catch(e){}
 
+    // ─── NEW TABLES: categories, reviews, coupons, banners, contact_messages, wishlist_items ─────
+    try {
+      await pgPool.query(`
+        CREATE TABLE IF NOT EXISTS categories (
+          id SERIAL PRIMARY KEY,
+          name TEXT NOT NULL,
+          slug TEXT NOT NULL UNIQUE,
+          image TEXT,
+          description TEXT
+        );
+        CREATE TABLE IF NOT EXISTS reviews (
+          id SERIAL PRIMARY KEY,
+          jersey_id INTEGER NOT NULL REFERENCES jerseys(id) ON DELETE CASCADE,
+          customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+          rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+          comment TEXT,
+          created_at TIMESTAMP DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS coupons (
+          id SERIAL PRIMARY KEY,
+          code TEXT NOT NULL UNIQUE,
+          discount_type TEXT NOT NULL CHECK(discount_type IN ('percentage','fixed')),
+          discount_value NUMERIC NOT NULL,
+          minimum_purchase NUMERIC DEFAULT 0,
+          expiry_date TIMESTAMP,
+          usage_limit INTEGER DEFAULT 0,
+          used_count INTEGER DEFAULT 0,
+          active INTEGER DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS banners (
+          id SERIAL PRIMARY KEY,
+          title TEXT,
+          subtitle TEXT,
+          image TEXT,
+          button_text TEXT,
+          link TEXT,
+          active INTEGER DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS contact_messages (
+          id SERIAL PRIMARY KEY,
+          name TEXT NOT NULL,
+          email TEXT NOT NULL,
+          subject TEXT,
+          message TEXT NOT NULL,
+          is_read INTEGER DEFAULT 0,
+          created_at TIMESTAMP DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS wishlist_items (
+          id SERIAL PRIMARY KEY,
+          customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+          jersey_id INTEGER NOT NULL REFERENCES jerseys(id) ON DELETE CASCADE,
+          created_at TIMESTAMP DEFAULT NOW(),
+          UNIQUE(customer_id, jersey_id)
+        );
+      `);
+    } catch(e) { console.error('Error creating new tables:', e.message); }
+
+    // ─── NEW COLUMNS ON EXISTING TABLES ───
+    try { await pgPool.query('ALTER TABLE customers ADD COLUMN avatar TEXT'); } catch(e){}
+    try { await pgPool.query('ALTER TABLE jerseys ADD COLUMN slug TEXT'); } catch(e){}
+    try { await pgPool.query('ALTER TABLE jerseys ADD COLUMN brand TEXT'); } catch(e){}
+    try { await pgPool.query('ALTER TABLE jerseys ADD COLUMN league TEXT'); } catch(e){}
+    try { await pgPool.query("ALTER TABLE jerseys ADD COLUMN gender TEXT DEFAULT 'Unisex'"); } catch(e){}
+    try { await pgPool.query('ALTER TABLE jerseys ADD COLUMN discount_price NUMERIC'); } catch(e){}
+    try { await pgPool.query('ALTER TABLE jerseys ADD COLUMN rating NUMERIC DEFAULT 0'); } catch(e){}
+    try { await pgPool.query('ALTER TABLE jerseys ADD COLUMN num_reviews INTEGER DEFAULT 0'); } catch(e){}
+    try { await pgPool.query('ALTER TABLE orders ADD COLUMN tax NUMERIC DEFAULT 0'); } catch(e){}
+    try { await pgPool.query('ALTER TABLE orders ADD COLUMN shipping_cost NUMERIC DEFAULT 0'); } catch(e){}
+
     // Ensure admin exists in PG
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@kickoff.com';
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
@@ -370,6 +439,83 @@ async function initialize() {
   d.exec('CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id)');
   d.exec('CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id)');
   d.exec('CREATE INDEX IF NOT EXISTS idx_orders_stripe ON orders(stripe_session_id)');
+
+  // ─── NEW TABLES (SQLite) ───
+  d.exec(`
+    CREATE TABLE IF NOT EXISTS categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      image TEXT,
+      description TEXT
+    )
+  `);
+  d.exec(`
+    CREATE TABLE IF NOT EXISTS reviews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      jersey_id INTEGER NOT NULL REFERENCES jerseys(id) ON DELETE CASCADE,
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+      comment TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+  d.exec(`
+    CREATE TABLE IF NOT EXISTS coupons (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code TEXT NOT NULL UNIQUE,
+      discount_type TEXT NOT NULL CHECK(discount_type IN ('percentage','fixed')),
+      discount_value REAL NOT NULL,
+      minimum_purchase REAL DEFAULT 0,
+      expiry_date TEXT,
+      usage_limit INTEGER DEFAULT 0,
+      used_count INTEGER DEFAULT 0,
+      active INTEGER DEFAULT 1
+    )
+  `);
+  d.exec(`
+    CREATE TABLE IF NOT EXISTS banners (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT,
+      subtitle TEXT,
+      image TEXT,
+      button_text TEXT,
+      link TEXT,
+      active INTEGER DEFAULT 0
+    )
+  `);
+  d.exec(`
+    CREATE TABLE IF NOT EXISTS contact_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      subject TEXT,
+      message TEXT NOT NULL,
+      is_read INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+  d.exec(`
+    CREATE TABLE IF NOT EXISTS wishlist_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      jersey_id INTEGER NOT NULL REFERENCES jerseys(id) ON DELETE CASCADE,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(customer_id, jersey_id)
+    )
+  `);
+
+  // ─── NEW COLUMNS ON EXISTING TABLES (SQLite) ───
+  try { d.exec('ALTER TABLE customers ADD COLUMN avatar TEXT'); } catch(e){}
+  try { d.exec('ALTER TABLE jerseys ADD COLUMN slug TEXT'); } catch(e){}
+  try { d.exec('ALTER TABLE jerseys ADD COLUMN brand TEXT'); } catch(e){}
+  try { d.exec('ALTER TABLE jerseys ADD COLUMN league TEXT'); } catch(e){}
+  try { d.exec("ALTER TABLE jerseys ADD COLUMN gender TEXT DEFAULT 'Unisex'"); } catch(e){}
+  try { d.exec('ALTER TABLE jerseys ADD COLUMN discount_price REAL'); } catch(e){}
+  try { d.exec('ALTER TABLE jerseys ADD COLUMN rating REAL DEFAULT 0'); } catch(e){}
+  try { d.exec('ALTER TABLE jerseys ADD COLUMN num_reviews INTEGER DEFAULT 0'); } catch(e){}
+  try { d.exec('ALTER TABLE orders ADD COLUMN tax REAL DEFAULT 0'); } catch(e){}
+  try { d.exec('ALTER TABLE orders ADD COLUMN shipping_cost REAL DEFAULT 0'); } catch(e){}
 
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@kickoff.com';
   const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
