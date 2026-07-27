@@ -1184,7 +1184,7 @@ app.get('/api/admin/sales', adminRequired, async (req, res) => {
     const dailySales = await db.all(
       `SELECT DATE(created_at) as date, COUNT(*) as order_count, COALESCE(SUM(total), 0) as revenue
        FROM orders
-       WHERE payment_status = 'paid' AND created_at >= ?
+       WHERE payment_status = 'paid' AND created_at >= $1
        GROUP BY DATE(created_at)
        ORDER BY date ASC`,
       [cutoffDate]
