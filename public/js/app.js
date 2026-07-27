@@ -144,10 +144,6 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAuthModal();
     updateAuthUI();
     syncCartToServer();
-    if (state.pendingCheckout) {
-      state.pendingCheckout = false;
-      navigateTo('checkout');
-    }
     return true;
   }
 
@@ -164,10 +160,6 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAuthModal();
     updateAuthUI();
     syncCartToServer();
-    if (state.pendingCheckout) {
-      state.pendingCheckout = false;
-      navigateTo('checkout');
-    }
     return true;
   }
 
@@ -410,12 +402,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (page === 'cart') {
       renderCart();
     } else     if (page === 'checkout') {
-      if (!state.token) {
-        openAuthModal('login');
-        state.pendingCheckout = true;
-        navigateTo('cart');
-        return;
-      }
       renderCheckoutSummary();
     } else if (page === 'profile') {
       renderProfilePage();
