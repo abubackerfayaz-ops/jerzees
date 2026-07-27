@@ -2089,7 +2089,7 @@ footer::before {
 }
 #search-input {
   width: 100%;
-  padding: 20px 50px 20px 24px;
+  padding: 20px 160px 20px 24px;
   background: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -2104,6 +2104,26 @@ footer::before {
   border-color: var(--green);
   outline: none;
   box-shadow: 0 0 0 2px rgba(179,240,0,0.1);
+}
+.search-btn {
+  position: absolute;
+  right: 56px;
+  background: var(--green);
+  border: none;
+  color: var(--bg-dark);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.search-btn:hover {
+  background: var(--white);
+  box-shadow: 0 0 20px rgba(179,240,0,0.3);
 }
 .search-close {
   position: absolute;

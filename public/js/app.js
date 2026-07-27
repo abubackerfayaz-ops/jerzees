@@ -389,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (page === 'home') {
       loadFeaturedJerseys();
     } else if (page === 'catalog') {
-      loadCatalogJerseys(params.filter || 'all');
+      loadCatalogJerseys(params.filter || 'all', params.search);
     } else if (page === 'teams') {
       loadTeams();
     } else if (page === 'team') {
@@ -412,52 +412,63 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Load Catalog Jerseys with Category Filters
-  async function loadCatalogJerseys(filter) {
+  async function loadCatalogJerseys(filter, searchTerm) {
     const container = document.getElementById('catalog-jerseys');
     const titleEl = document.getElementById('catalog-title');
+    const filterBar = document.getElementById('category-filter-bar');
     if (!container) return;
     container.innerHTML = '<div class="cart-empty"><p>Loading kits...</p></div>';
 
-    const category = filter || state.activeCategory || 'all';
-    state.activeCategory = category;
-
-    let endpoint = `/api/jerseys?category=${encodeURIComponent(category)}`;
-    if (category === 'all') {
-      if (titleEl) titleEl.innerHTML = 'Shop <span>All Kits</span>';
-    } else if (category === 'retro') {
-      if (titleEl) titleEl.innerHTML = 'Classic <span>Retro</span>';
-    } else if (category === 'new' || category === 'new-drops' || category === 'new_drops') {
-      if (titleEl) titleEl.innerHTML = 'New <span>Kits &amp; Drops</span>';
-    } else if (category === 'training') {
-      if (titleEl) titleEl.innerHTML = 'Training <span>Kits</span>';
-    } else if (category === 'tracksuit') {
-      if (titleEl) titleEl.innerHTML = 'Full <span>Tracksuits</span>';
+    if (searchTerm) {
+      if (filterBar) filterBar.style.display = 'none';
+      if (titleEl) titleEl.innerHTML = `Search: <span>${searchTerm}</span>`;
+      state.searchTerm = searchTerm;
+      var endpoint = `/api/jerseys?search=${encodeURIComponent(searchTerm)}`;
     } else {
-      const catCapitalized = category.charAt(0).toUpperCase() + category.slice(1);
-      if (titleEl) titleEl.innerHTML = `${catCapitalized} <span>Kits</span>`;
-    }
+      if (filterBar) filterBar.style.display = '';
+      const category = filter || state.activeCategory || 'all';
+      state.activeCategory = category;
 
-    // Sync the active state on the filter bar buttons
-    document.querySelectorAll('#category-filter-bar .cat-filter-btn').forEach(b => {
-      const btnCat = b.getAttribute('data-category');
-      b.classList.toggle('active',
-        btnCat === category ||
-        (category === 'new' && btnCat === 'all') ||
-        (category === 'new-drops' && btnCat === 'all')
-      );
-    });
+      if (category === 'all') {
+        if (titleEl) titleEl.innerHTML = 'Shop <span>All Kits</span>';
+      } else if (category === 'retro') {
+        if (titleEl) titleEl.innerHTML = 'Classic <span>Retro</span>';
+      } else if (category === 'new' || category === 'new-drops' || category === 'new_drops') {
+        if (titleEl) titleEl.innerHTML = 'New <span>Kits &amp; Drops</span>';
+      } else if (category === 'training') {
+        if (titleEl) titleEl.innerHTML = 'Training <span>Kits</span>';
+      } else if (category === 'tracksuit') {
+        if (titleEl) titleEl.innerHTML = 'Full <span>Tracksuits</span>';
+      } else {
+        const catCapitalized = category.charAt(0).toUpperCase() + category.slice(1);
+        if (titleEl) titleEl.innerHTML = `${catCapitalized} <span>Kits</span>`;
+      }
+
+      document.querySelectorAll('#category-filter-bar .cat-filter-btn').forEach(b => {
+        const btnCat = b.getAttribute('data-category');
+        b.classList.toggle('active',
+          btnCat === category ||
+          (category === 'new' && btnCat === 'all') ||
+          (category === 'new-drops' && btnCat === 'all')
+        );
+      });
+
+      var endpoint = `/api/jerseys?category=${encodeURIComponent(category)}`;
+    }
 
     let jerseys = await apiFetch(endpoint);
     if (!Array.isArray(jerseys)) jerseys = [];
 
     if (!jerseys.length) {
-      container.innerHTML = '<div class="cart-empty"><p>No jerseys found matching this category.</p></div>';
+      const msg = searchTerm
+        ? `<p>No results found for "<strong>${searchTerm}</strong>". Try a different search.</p>`
+        : '<p>No jerseys found matching this category.</p>';
+      container.innerHTML = `<div class="cart-empty">${msg}</div>`;
       return;
     }
 
     container.innerHTML = jerseys.map(jersey => `
       <div class="jersey-card" data-id="${jersey.id}">
-        <!-- Laser Scanner -->
         <div class="card-scanner-glow"></div>
         ${renderJerseyMedia(jersey)}
         <div class="info">
@@ -1655,6 +1666,19 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('search-close-btn').addEventListener('click', closeSearch);
   document.getElementById('search-overlay').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeSearch();
+  });
+
+  document.getElementById('search-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const q = e.target.value.trim();
+      if (q.length >= 2) { closeSearch(); navigateTo('catalog', { search: q }); }
+    }
+  });
+
+  document.getElementById('search-btn').addEventListener('click', () => {
+    const q = document.getElementById('search-input').value.trim();
+    if (q.length >= 2) { closeSearch(); navigateTo('catalog', { search: q }); }
   });
 
   document.getElementById('search-input').addEventListener('input', async (e) => {
