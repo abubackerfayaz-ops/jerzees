@@ -2,6 +2,9 @@ require('dotenv').config({ path: __dirname + '/.env' });
 
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const xss = require('xss');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -19,13 +22,38 @@ const bcrypt = require('bcryptjs');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 
+// Warn if JWT secret is weak/default
+if (!JWT_SECRET || JWT_SECRET === 'dev-secret-change-in-production' || JWT_SECRET.length < 32) {
+  console.error('SECURITY RISK: JWT_SECRET is weak, too short, or default. Generate a 64+ char random string.');
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
-app.use(cors());
+// Validate critical env vars
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.includes('change-this')) {
+  console.error('SECURITY RISK: JWT_SECRET must be set to a strong random value in production.');
+}
+if (process.env.ADMIN_PASSWORD && (process.env.ADMIN_PASSWORD.length < 8 || process.env.ADMIN_PASSWORD === 'admin123')) {
+  console.error('SECURITY RISK: ADMIN_PASSWORD is weak. Use a strong password (12+ chars).');
+}
 
-// Stripe webhook must receive raw body for signature verification (before express.json)
+// ─── SECURITY & BODY PARSING MIDDLEWARE ─────────────────────────────────────
+
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' ? process.env.BASE_URL : '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id'],
+  credentials: true,
+}));
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: false,
+}));
+
+// Stripe webhook must receive raw body (before any JSON parsing)
 app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   if (!stripe) return res.status(503).json({ error: 'Payment not configured' });
   const sig = req.headers['stripe-signature'];
@@ -48,7 +76,6 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
       );
       console.log(`Order #${orderId} marked as paid via Stripe.`);
 
-      // Send SMS & WhatsApp notification
       try {
         const order = await db.get(
           `SELECT o.*, c.name as customer_name
@@ -74,7 +101,48 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
   res.json({ received: true });
 });
 
-app.use(express.json());
+app.use(express.json({ limit: '10kb' }));
+
+// Input sanitization
+function sanitizeValue(val) {
+  if (typeof val === 'string') return xss(val.trim());
+  if (Array.isArray(val)) return val.map(sanitizeValue);
+  if (val && typeof val === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(val)) out[k] = sanitizeValue(v);
+    return out;
+  }
+  return val;
+}
+app.use((req, res, next) => {
+  if (req.body) req.body = sanitizeValue(req.body);
+  if (req.query) {
+    for (const [k, v] of Object.entries(req.query)) {
+      if (typeof v === 'string') req.query[k] = xss(v.trim());
+    }
+  }
+  next();
+});
+
+// Rate limiters
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many login attempts. Try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  message: { error: 'Too many requests. Slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', apiLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: false,
   lastModified: false,
@@ -84,6 +152,14 @@ app.use(express.static(path.join(__dirname, 'public'), {
     res.setHeader('Expires', '0');
   }
 }));
+
+// Prevent caching of API responses (sensitive data)
+app.use('/api/', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
 
 // Simple session middleware
 app.use((req, res, next) => {
@@ -148,6 +224,9 @@ app.post('/api/auth/register', async (req, res) => {
     if (password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
+    if (password.length > 128) {
+      return res.status(400).json({ error: 'Password is too long (max 128 characters)' });
+    }
 
     const existing = await db.get('SELECT id FROM customers WHERE email = $1', [email]);
     if (existing) {
@@ -160,7 +239,7 @@ app.post('/api/auth/register', async (req, res) => {
       [name, email, hash]
     );
     const user = c.rows[0];
-    const token = jwt.sign({ id: user.id, name: user.name, email: user.email, is_admin: user.is_admin }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user.id, name: user.name, email: user.email, is_admin: user.is_admin }, JWT_SECRET, { expiresIn: '24h' });
 
     res.json({ success: true, user, token });
   } catch (err) {
@@ -190,7 +269,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const token = jwt.sign({ id: user.id, name: user.name, email: user.email, is_admin: user.is_admin }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user.id, name: user.name, email: user.email, is_admin: user.is_admin }, JWT_SECRET, { expiresIn: '24h' });
     res.json({ success: true, user: { id: user.id, name: user.name, email: user.email, is_admin: user.is_admin, created_at: user.created_at }, token });
   } catch (err) {
     console.error(err);
@@ -1258,7 +1337,13 @@ app.get('*', (req, res) => {
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err.message);
-  res.status(500).json({ error: 'Internal server error' });
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request body too large. Max 10KB.' });
+  }
+  if (err.name === 'SyntaxError' && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ error: 'Invalid JSON in request body.' });
+  }
+  res.status(err.status || 500).json({ error: 'Internal server error' });
 });
 
 // ─── START ───────────────────────────────────────────────────────────────────
