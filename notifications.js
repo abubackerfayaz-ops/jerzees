@@ -98,29 +98,34 @@ async function sendTelegram(message, items = []) {
   let anySuccess = false;
   for (const chatId of TG_CHAT_IDS) {
     try {
-      for (const item of items) {
-        const imgUrl = item.image_url;
-        if (!imgUrl) continue;
-        const caption = `${item.jersey_name || 'Jersey'} — ${item.club || ''} ${item.season || ''} (${item.size}, Qty: ${item.quantity})`.substring(0, 1024);
-        const result = await tgPost('sendPhoto', {
-          chat_id: chatId,
-          photo: imgUrl,
-          caption
-        });
-        if (result.ok) {
-          console.log(`[Notification] Telegram image sent to ${chatId} for ${item.jersey_name}`);
-          anySuccess = true;
-        } else {
-          console.warn(`[Notification] Telegram photo to ${chatId} failed:`, result.description || 'unknown');
-        }
-      }
-      const text = message;
-      const result = await tgPost('sendMessage', { chat_id: chatId, text });
-      if (result.ok) {
+      // Send text message first
+      const msgResult = await tgPost('sendMessage', { chat_id: chatId, text: message });
+      if (msgResult.ok) {
         console.log(`[Notification] Telegram message sent to ${chatId}`);
         anySuccess = true;
       } else {
-        console.warn(`[Notification] Telegram to ${chatId} failed:`, result.description || 'unknown');
+        console.warn(`[Notification] Telegram message to ${chatId} failed:`, msgResult.description || 'unknown');
+      }
+
+      // Then try sending each jersey image (independent, best-effort)
+      for (const item of items) {
+        const imgUrl = item.image_url;
+        if (!imgUrl) continue;
+        try {
+          const caption = `${item.jersey_name || 'Jersey'} — ${item.club || ''} ${item.season || ''} (${item.size}, Qty: ${item.quantity})`.substring(0, 1024);
+          const photoResult = await tgPost('sendPhoto', {
+            chat_id: chatId,
+            photo: imgUrl,
+            caption
+          });
+          if (photoResult.ok) {
+            console.log(`[Notification] Telegram image sent to ${chatId} for ${item.jersey_name}`);
+          } else {
+            console.warn(`[Notification] Telegram photo to ${chatId} failed:`, photoResult.description || 'unknown');
+          }
+        } catch (imgErr) {
+          console.warn(`[Notification] Telegram photo error for ${chatId}:`, imgErr.message);
+        }
       }
     } catch (err) {
       console.warn(`[Notification] Telegram to ${chatId} error:`, err.message);
