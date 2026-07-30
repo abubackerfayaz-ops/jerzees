@@ -4,6 +4,9 @@ const https = require('https');
 const TG_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TG_CHAT_IDS = (process.env.TELEGRAM_CHAT_ID || '').split(',').map(s => s.trim()).filter(Boolean);
 
+console.log(`[Telegram] Bot token: ${TG_BOT_TOKEN ? '✓ SET' : '✗ NOT SET'}`);
+console.log(`[Telegram] Chat IDs: ${TG_CHAT_IDS.length ? TG_CHAT_IDS.join(', ') : 'NONE'}`);
+
 // Twilio config (paid fallback)
 const ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 const AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
@@ -80,7 +83,8 @@ function tgPost(method, body) {
     const data = JSON.stringify(body);
     const opts = {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+      timeout: 15000
     };
     const req = https.request(url, opts, res => {
       let r = '';
@@ -88,6 +92,7 @@ function tgPost(method, body) {
       res.on('end', () => { try { resolve(JSON.parse(r)); } catch { resolve({ ok: false }); } });
     });
     req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Telegram request timed out')); });
     req.write(data);
     req.end();
   });
@@ -174,7 +179,10 @@ async function sendSMS(message) {
 }
 
 async function notifyOrder(orderData) {
-  if (!orderData || !orderData.orderId) return;
+  if (!orderData || !orderData.orderId) {
+    console.warn('[Notification] Invalid orderData:', orderData);
+    return;
+  }
 
   const orderIdKey = String(orderData.orderId);
   if (notifiedOrders.has(orderIdKey)) {
@@ -191,14 +199,19 @@ async function notifyOrder(orderData) {
   // Priority 1: Telegram (free) — send images + message
   const items = orderData.items || [];
   const tgSuccess = await sendTelegram(message, items);
+  console.log(`[Notification] Telegram result for ORD-${orderIdKey}: ${tgSuccess ? 'SENT' : 'FAILED (no channel configured or all failed)'}`);
   if (tgSuccess) return;
 
   // Priority 2: WhatsApp (paid)
+  console.log('[Notification] Falling back to WhatsApp...');
   const waSuccess = await sendWhatsApp(message);
+  console.log(`[Notification] WhatsApp result: ${waSuccess ? 'SENT' : 'FAILED'}`);
   if (waSuccess) return;
 
   // Priority 3: SMS (paid)
+  console.log('[Notification] Falling back to SMS...');
   await sendSMS(message);
+  console.log('[Notification] SMS attempted');
 }
 
 module.exports = { notifyOrder, formatNotificationMessage };
