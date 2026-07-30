@@ -1,5 +1,4 @@
 const https = require('https');
-const twilio = require('twilio');
 
 // Telegram config (free)
 const TG_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -18,7 +17,7 @@ const TO_NUMBERS = [
 let client = null;
 if (ACCOUNT_SID && AUTH_TOKEN && !ACCOUNT_SID.includes('XXXXX')) {
   try {
-    client = twilio(ACCOUNT_SID, AUTH_TOKEN);
+    client = require('twilio')(ACCOUNT_SID, AUTH_TOKEN);
   } catch (err) {
     console.error('Twilio initialization failed:', err.message);
   }
@@ -75,28 +74,50 @@ Total: ${currencySymbol}${typeof total === 'number' ? total.toFixed(2) : total}
 Payment: ${paymentStatus || 'Paid'}`;
 }
 
-function tgRequest(path) {
+function tgPost(method, body) {
   return new Promise((resolve, reject) => {
-    const url = `https://api.telegram.org/bot${TG_BOT_TOKEN}${path}`;
-    https.get(url, res => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); } catch { resolve({ ok: false }); }
-      });
-    }).on('error', reject);
+    const url = `https://api.telegram.org/bot${TG_BOT_TOKEN}/${method}`;
+    const data = JSON.stringify(body);
+    const opts = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
+    };
+    const req = https.request(url, opts, res => {
+      let r = '';
+      res.on('data', c => r += c);
+      res.on('end', () => { try { resolve(JSON.parse(r)); } catch { resolve({ ok: false }); } });
+    });
+    req.on('error', reject);
+    req.write(data);
+    req.end();
   });
 }
 
-async function sendTelegram(message) {
+async function sendTelegram(message, items = []) {
   if (!TG_BOT_TOKEN || !TG_CHAT_IDS.length) return false;
   let anySuccess = false;
   for (const chatId of TG_CHAT_IDS) {
     try {
-      const text = encodeURIComponent(message);
-      const result = await tgRequest(`/sendMessage?chat_id=${chatId}&text=${text}`);
+      for (const item of items) {
+        const imgUrl = item.image_url;
+        if (!imgUrl) continue;
+        const caption = `${item.jersey_name || 'Jersey'} — ${item.club || ''} ${item.season || ''} (${item.size}, Qty: ${item.quantity})`.substring(0, 1024);
+        const result = await tgPost('sendPhoto', {
+          chat_id: chatId,
+          photo: imgUrl,
+          caption
+        });
+        if (result.ok) {
+          console.log(`[Notification] Telegram image sent to ${chatId} for ${item.jersey_name}`);
+          anySuccess = true;
+        } else {
+          console.warn(`[Notification] Telegram photo to ${chatId} failed:`, result.description || 'unknown');
+        }
+      }
+      const text = message;
+      const result = await tgPost('sendMessage', { chat_id: chatId, text });
       if (result.ok) {
-        console.log(`[Notification] Telegram sent to chat ${chatId}`);
+        console.log(`[Notification] Telegram message sent to ${chatId}`);
         anySuccess = true;
       } else {
         console.warn(`[Notification] Telegram to ${chatId} failed:`, result.description || 'unknown');
@@ -162,8 +183,9 @@ async function notifyOrder(orderData) {
   console.log(message);
   console.log('-----------------------------------------------\n');
 
-  // Priority 1: Telegram (free)
-  const tgSuccess = await sendTelegram(message);
+  // Priority 1: Telegram (free) — send images + message
+  const items = orderData.items || [];
+  const tgSuccess = await sendTelegram(message, items);
   if (tgSuccess) return;
 
   // Priority 2: WhatsApp (paid)

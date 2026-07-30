@@ -85,12 +85,20 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         );
         if (order) {
           const items = await db.all(
-            `SELECT oi.*, j.name as jersey_name
+            `SELECT oi.*, j.name as jersey_name,
+                    (SELECT image_url FROM jersey_images WHERE jersey_id = j.id ORDER BY sort_order LIMIT 1) as image_url
              FROM order_items oi JOIN jerseys j ON oi.jersey_id = j.id
              WHERE oi.order_id = $1`,
             [orderId]
           );
-          notifyOrder(order.id, order.customer_name, order.total, items);
+          notifyOrder({
+            orderId: order.id,
+            customerName: order.customer_name,
+            total: order.total,
+            paymentStatus: 'Paid',
+            createdTime: new Date().toISOString(),
+            items
+          });
         }
       } catch (notifErr) {
         console.error('Order notification error:', notifErr.message);
@@ -892,7 +900,8 @@ app.post('/api/checkout', async (req, res) => {
     // Send complete structured notification
     try {
       const notifItems = await db.all(
-        `SELECT oi.*, j.name as jersey_name, j.season, t.name as club
+        `SELECT oi.*, j.name as jersey_name, j.season, t.name as club,
+                (SELECT image_url FROM jersey_images WHERE jersey_id = j.id ORDER BY sort_order LIMIT 1) as image_url
          FROM order_items oi
          JOIN jerseys j ON oi.jersey_id = j.id
          JOIN teams t ON j.team_id = t.id
