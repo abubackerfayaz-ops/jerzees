@@ -1,4 +1,5 @@
 const https = require('https');
+const http = require('http');
 
 // Telegram config (free)
 const TG_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -98,6 +99,35 @@ function tgPost(method, body) {
   });
 }
 
+function downloadImage(url) {
+  return new Promise((resolve, reject) => {
+    let target;
+    try { target = new URL(url); } catch { return reject(new Error('Invalid URL')); }
+    const mod = target.protocol === 'https:' ? https : http;
+    const opts = {
+      hostname: target.hostname,
+      path: target.pathname + target.search,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': `https://${target.hostname}/`,
+        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+      },
+      timeout: 15000
+    };
+    const chunks = [];
+    const req = mod.get(opts, res => {
+      if (res.statusCode !== 200) {
+        res.destroy();
+        return reject(new Error(`HTTP ${res.statusCode}`));
+      }
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Image download timed out')); });
+  });
+}
+
 async function sendTelegram(message, items = []) {
   if (!TG_BOT_TOKEN || !TG_CHAT_IDS.length) return false;
   let anySuccess = false;
@@ -112,15 +142,24 @@ async function sendTelegram(message, items = []) {
         console.warn(`[Notification] Telegram message to ${chatId} failed:`, msgResult.description || 'unknown');
       }
 
-      // Then try sending each jersey image (independent, best-effort)
+      // Then try sending each jersey image (download + base64, independent)
       for (const item of items) {
         const imgUrl = item.image_url;
         if (!imgUrl) continue;
         try {
+          console.log(`[Notification] Downloading image for ${item.jersey_name}: ${imgUrl.substring(0, 80)}...`);
+          const imgBuffer = await downloadImage(imgUrl);
+          const b64 = imgBuffer.toString('base64');
+          // Detect MIME from magic bytes
+          let mime = 'image/jpeg';
+          if (imgBuffer[0] === 0x89 && imgBuffer[1] === 0x50) mime = 'image/png';
+          else if (imgBuffer[0] === 0x47 && imgBuffer[1] === 0x49) mime = 'image/gif';
+          else if (imgBuffer[0] === 0x52 && imgBuffer[1] === 0x49) mime = 'image/webp';
+          const dataUri = `data:${mime};base64,${b64}`;
           const caption = `${item.jersey_name || 'Jersey'} — ${item.club || ''} ${item.season || ''} (${item.size}, Qty: ${item.quantity})`.substring(0, 1024);
           const photoResult = await tgPost('sendPhoto', {
             chat_id: chatId,
-            photo: imgUrl,
+            photo: dataUri,
             caption
           });
           if (photoResult.ok) {
@@ -129,7 +168,7 @@ async function sendTelegram(message, items = []) {
             console.warn(`[Notification] Telegram photo to ${chatId} failed:`, photoResult.description || 'unknown');
           }
         } catch (imgErr) {
-          console.warn(`[Notification] Telegram photo error for ${chatId}:`, imgErr.message);
+          console.warn(`[Notification] Image error for ${item.jersey_name}:`, imgErr.message);
         }
       }
     } catch (err) {

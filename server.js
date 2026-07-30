@@ -84,18 +84,13 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           [orderId]
         );
         if (order) {
-          const protocol = req.headers['x-forwarded-proto'] || 'https';
-          const baseUrl = `${protocol}://${req.headers.host}`;
-          const items = (await db.all(
+          const items = await db.all(
             `SELECT oi.*, j.name as jersey_name,
                     (SELECT image_url FROM jersey_images WHERE jersey_id = j.id ORDER BY sort_order LIMIT 1) as image_url
              FROM order_items oi JOIN jerseys j ON oi.jersey_id = j.id
              WHERE oi.order_id = $1`,
             [orderId]
-          )).map(item => ({
-            ...item,
-            image_url: item.image_url ? `${baseUrl}/api/img-proxy?url=${encodeURIComponent(item.image_url)}` : null
-          }));
+          );
           notifyOrder({
             orderId: order.id,
             customerName: order.customer_name,
@@ -904,9 +899,7 @@ app.post('/api/checkout', async (req, res) => {
 
     // Send complete structured notification
     try {
-      const protocol = req.headers['x-forwarded-proto'] || 'https';
-      const baseUrl = `${protocol}://${req.headers.host}`;
-      const notifItems = (await db.all(
+      const notifItems = await db.all(
         `SELECT oi.*, j.name as jersey_name, j.season, t.name as club,
                 (SELECT image_url FROM jersey_images WHERE jersey_id = j.id ORDER BY sort_order LIMIT 1) as image_url
          FROM order_items oi
@@ -914,10 +907,7 @@ app.post('/api/checkout', async (req, res) => {
          JOIN teams t ON j.team_id = t.id
          WHERE oi.order_id = $1`,
         [orderId]
-      )).map(item => ({
-        ...item,
-        image_url: item.image_url ? `${baseUrl}/api/img-proxy?url=${encodeURIComponent(item.image_url)}` : null
-      }));
+      );
       notifyOrder({
         orderId,
         customerName: customer_name,
