@@ -31,10 +31,6 @@ const notifiedOrders = new Set();
 
 const SEPARATOR = '━━━━━━━━━━━━━━━━━━━━';
 
-function escapeHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
 function formatTime(createdTime) {
   return createdTime ? new Date(createdTime).toLocaleString('en-US', { timeZone: 'UTC' }) + ' UTC' : new Date().toISOString();
 }
@@ -165,108 +161,9 @@ ${formatTime(createdTime)}
 ${SEPARATOR}`;
 }
 
-function formatNotificationHtml(orderData) {
-  const {
-    orderId,
-    customerName,
-    phone,
-    email,
-    address,
-    country,
-    total,
-    currencySymbol = '€',
-    paymentStatus = 'Paid',
-    paymentMethod = 'Online',
-    createdTime,
-    items = []
-  } = orderData;
-
-  const productBlocks = items.map((item, idx) => {
-    const f = itemFields(item, currencySymbol);
-    const header = items.length > 1 ? `📦 Product #${idx + 1}` : '📦 Product';
-    let block = `<b>${header}</b>
-
-• Jersey:
-${escapeHtml(f.name)}
-
-• Version:
-${escapeHtml(f.version)}
-
-• Size:
-${escapeHtml(f.size)}
-
-• Category:
-${escapeHtml(f.category)}
-
-• Season:
-${escapeHtml(f.season)}
-
-• Quantity:
-${f.qty}
-
-• Price:
-${escapeHtml(f.price)}`;
-    if (f.player) block += `
-
-• Player Name:
-${escapeHtml(f.player)}`;
-    return block;
-  }).join(`\n\n${SEPARATOR}\n\n`);
-
-  return `🛒 <b>NEW ORDER RECEIVED</b>
-
-${SEPARATOR}
-
-${productBlocks}
-
-${SEPARATOR}
-
-<b>👤 Customer</b>
-
-Name:
-${escapeHtml(customerName || 'N/A')}
-
-Phone:
-${escapeHtml(phone || 'N/A')}
-
-Email:
-${escapeHtml(email || 'N/A')}
-
-${SEPARATOR}
-
-<b>📍 Shipping Address</b>
-
-${escapeHtml(customerName || 'N/A')}
-
-${escapeHtml(address || 'N/A')}
-
-${escapeHtml(country || 'N/A')}
-
-${SEPARATOR}
-
-<b>💳 Payment</b>
-
-Method:
-${escapeHtml(paymentMethod || 'Online')}
-
-Status:
-${escapeHtml(paymentStatus || 'Paid')}
-
-Order Total:
-${escapeHtml(currencySymbol)}${typeof total === 'number' ? total.toFixed(2) : escapeHtml(total)}
-
-Order ID:
-${escapeHtml(orderId)}
-
-Date:
-${escapeHtml(formatTime(createdTime))}
-
-${SEPARATOR}`;
-}
-
 function shortPhotoCaption(item, currencySymbol) {
   const f = itemFields(item, currencySymbol);
-  return `🛒 <b>NEW ORDER RECEIVED</b>\n${escapeHtml(f.name)}\n${escapeHtml(f.version)} • ${escapeHtml(f.size)} • Qty ${f.qty}\n<b>${escapeHtml(f.price)}</b>`;
+  return `🛒 NEW ORDER RECEIVED\n${f.name}\n${f.version} • ${f.size} • Qty ${f.qty}\n${f.price}`;
 }
 
 function tgPost(method, body) {
@@ -300,10 +197,10 @@ function isRetryable(result) {
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-async function tgCall(method, body) {
+async function tgCall(action) {
   const attempt = async () => {
     try {
-      return await tgPost(method, body);
+      return await action();
     } catch (err) {
       return { ok: false, networkError: true, description: err.message };
     }
@@ -311,7 +208,7 @@ async function tgCall(method, body) {
   const first = await attempt();
   if (first.ok) return first;
   if (first.networkError || isRetryable(first)) {
-    console.warn(`[Notification] ${method} failed (${first.description || first.error_code}), retrying once...`);
+    console.warn(`[Notification] Telegram request failed (${first.description || first.error_code}), retrying once...`);
     await sleep(2000);
     return attempt();
   }
@@ -355,66 +252,86 @@ function detectMime(buffer) {
   return 'image/jpeg';
 }
 
+function tgUploadPhoto(chatId, imageBuffer, mimeType, caption) {
+  return new Promise((resolve, reject) => {
+    const boundary = '----KickoffJerseys' + Math.random().toString(16).slice(2);
+    const CRLF = '\r\n';
+    const extension = mimeType === 'image/png' ? 'png' : mimeType === 'image/gif' ? 'gif' : 'jpg';
+    const parts = [
+      `--${boundary}${CRLF}`,
+      `Content-Disposition: form-data; name="chat_id"${CRLF}${CRLF}`,
+      `${chatId}${CRLF}`,
+      `--${boundary}${CRLF}`,
+      `Content-Disposition: form-data; name="caption"${CRLF}${CRLF}`,
+      `${caption}${CRLF}`,
+      `--${boundary}${CRLF}`,
+      `Content-Disposition: form-data; name="photo"; filename="jersey.${extension}"${CRLF}`,
+      `Content-Type: ${mimeType}${CRLF}${CRLF}`,
+    ];
+    const header = Buffer.from(parts.join(''), 'utf8');
+    const footer = Buffer.from(`${CRLF}--${boundary}--${CRLF}`, 'utf8');
+    const body = Buffer.concat([header, imageBuffer, footer]);
+
+    const opts = {
+      method: 'POST',
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': body.length,
+      },
+      timeout: 30000
+    };
+    const req = https.request(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendPhoto`, opts, res => {
+      let r = '';
+      res.on('data', c => r += c);
+      res.on('end', () => { try { resolve(JSON.parse(r)); } catch { resolve({ ok: false }); } });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Telegram upload timed out')); });
+    req.write(body);
+    req.end();
+  });
+}
+
 async function sendTelegram(orderData) {
   if (!TG_BOT_TOKEN || !TG_CHAT_IDS.length) return false;
 
   const message = formatNotificationMessage(orderData);
-  const html = formatNotificationHtml(orderData);
   const items = orderData.items || [];
   const firstItem = items[0] || {};
   const imgUrl = firstItem.image_url;
 
   console.log(`[Notification] Image URL: ${imgUrl ? imgUrl.substring(0, 80) + '...' : 'NONE (will send text only)'}`);
-  console.log(`[Notification] Caption length: ${html.length} chars`);
 
   let anySuccess = false;
 
   for (const chatId of TG_CHAT_IDS) {
     try {
+      // 1) Send the full details as plain-text FIRST so the owner is notified instantly.
+      //    No parse_mode → can never fail due to entity/HTML parsing.
+      const msgResult = await tgCall(() => tgPost('sendMessage', { chat_id: chatId, text: message }));
+      if (msgResult.ok) {
+        console.log(`[Notification] Telegram details sent to ${chatId}`);
+        anySuccess = true;
+      } else {
+        console.warn(`[Notification] sendMessage to ${chatId} failed:`, msgResult.description || msgResult.error_code || 'unknown');
+      }
+
+      // 2) Then attach the ordered jersey image via multipart upload.
+      //    NOTE: Telegram does NOT accept data: URIs — must upload raw bytes.
       if (imgUrl) {
-        let photoSent = false;
         try {
           console.log(`[Notification] Downloading image for ${firstItem.jersey_name}...`);
           const imgBuffer = await downloadImage(imgUrl);
-          const dataUri = `data:${detectMime(imgBuffer)};base64,${imgBuffer.toString('base64')}`;
-
-          // Caption must fit Telegram's 1024-char sendPhoto limit
-          const caption = html.length <= 1000 ? html : shortPhotoCaption(firstItem, orderData.currencySymbol || '€');
-          const photoResult = await tgCall('sendPhoto', {
-            chat_id: chatId,
-            photo: dataUri,
-            caption,
-            parse_mode: 'HTML'
-          });
+          const mime = detectMime(imgBuffer);
+          const caption = shortPhotoCaption(firstItem, orderData.currencySymbol || '€');
+          const photoResult = await tgCall(() => tgUploadPhoto(chatId, imgBuffer, mime, caption));
           if (photoResult.ok) {
-            console.log(`[Notification] Telegram photo sent to ${chatId}`);
-            anySuccess = true;
-            photoSent = true;
+            console.log(`[Notification] Telegram image sent to ${chatId} for ${firstItem.jersey_name}`);
           } else {
             console.warn(`[Notification] sendPhoto to ${chatId} failed:`, photoResult.description || photoResult.error_code || 'unknown');
           }
         } catch (imgErr) {
           console.warn(`[Notification] Image processing error for ${firstItem.jersey_name}:`, imgErr.message);
-        }
-
-        // If the full details didn't fit in the photo caption, send them separately
-        if (html.length > 1000 || !photoSent) {
-          const msgResult = await tgCall('sendMessage', { chat_id: chatId, text: html, parse_mode: 'HTML' });
-          if (msgResult.ok) {
-            console.log(`[Notification] Telegram full details sent to ${chatId}`);
-            anySuccess = true;
-          } else {
-            console.warn(`[Notification] sendMessage to ${chatId} failed:`, msgResult.description || msgResult.error_code || 'unknown');
-          }
-        }
-      } else {
-        // No image URL → fallback to sendMessage
-        const msgResult = await tgCall('sendMessage', { chat_id: chatId, text: html, parse_mode: 'HTML' });
-        if (msgResult.ok) {
-          console.log(`[Notification] Telegram message sent to ${chatId} (no image)`);
-          anySuccess = true;
-        } else {
-          console.warn(`[Notification] sendMessage to ${chatId} failed:`, msgResult.description || msgResult.error_code || 'unknown');
         }
       }
     } catch (err) {
