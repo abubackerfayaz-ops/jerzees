@@ -29,6 +29,43 @@ if (ACCOUNT_SID && AUTH_TOKEN && !ACCOUNT_SID.includes('XXXXX')) {
 
 const notifiedOrders = new Set();
 
+const SEPARATOR = '━━━━━━━━━━━━━━━━━━━━';
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function formatTime(createdTime) {
+  return createdTime ? new Date(createdTime).toLocaleString('en-US', { timeZone: 'UTC' }) + ' UTC' : new Date().toISOString();
+}
+
+function versionLabel(v) {
+  if (v === 'player') return 'Player';
+  if (v === 'retro') return 'Retro';
+  return 'Fan';
+}
+
+function categoryLabel(item) {
+  if (item.category) return item.category;
+  if (item.version === 'retro') return 'Retro';
+  if (item.club || item.team_name) return 'Club';
+  return 'National';
+}
+
+function itemFields(item, currencySymbol) {
+  const price = `${currencySymbol}${Number(item.unit_price || item.price || 0).toFixed(2)}`;
+  return {
+    name: item.jersey_name || 'Jersey',
+    version: versionLabel(item.version),
+    size: item.size || 'N/A',
+    category: categoryLabel(item),
+    season: item.season || 'N/A',
+    qty: item.quantity || 1,
+    price,
+    player: item.name_text || item.player_name || null,
+  };
+}
+
 function formatNotificationMessage(orderData) {
   const {
     orderId,
@@ -40,42 +77,196 @@ function formatNotificationMessage(orderData) {
     total,
     currencySymbol = '€',
     paymentStatus = 'Paid',
+    paymentMethod = 'Online',
     createdTime,
     items = []
   } = orderData;
 
-  const itemDetails = items.map((item, idx) => {
-    const versionLabel = item.version === 'player' ? 'Player Version' : (item.version === 'retro' ? 'Retro Version' : 'Fan Version');
-    const club = item.club || item.team_name || 'N/A';
-    const season = item.season || 'N/A';
-    const playerName = item.name_text || item.player_name || 'None';
-    return `Product${items.length > 1 ? ` #${idx + 1}` : ''}:
-${item.jersey_name || 'Jersey'}
-Club: ${club}
-Season: ${season}
-Type: ${versionLabel}
-Size: ${item.size}
-Qty: ${item.quantity}
-Player Name: ${playerName}`;
-  }).join('\n\n');
+  const productBlocks = items.map((item, idx) => {
+    const f = itemFields(item, currencySymbol);
+    const header = items.length > 1 ? `📦 Product #${idx + 1}` : '📦 Product';
+    let block = `${header}
 
-  const formattedTime = createdTime ? new Date(createdTime).toLocaleString('en-US', { timeZone: 'UTC' }) + ' UTC' : new Date().toISOString();
+• Jersey:
+${f.name}
 
-  return `NEW ORDER RECEIVED
+• Version:
+${f.version}
 
-Order ID: ORD-${orderId}
-Order Time: ${formattedTime}
+• Size:
+${f.size}
 
-Customer: ${customerName || 'N/A'}
-Phone: ${phone || 'N/A'}
-Email: ${email || 'N/A'}
-Country: ${country || 'N/A'}
-Address: ${address || 'N/A'}
+• Category:
+${f.category}
 
-${itemDetails}
+• Season:
+${f.season}
 
-Total: ${currencySymbol}${typeof total === 'number' ? total.toFixed(2) : total}
-Payment: ${paymentStatus || 'Paid'}`;
+• Quantity:
+${f.qty}
+
+• Price:
+${f.price}`;
+    if (f.player) block += `
+
+• Player Name:
+${f.player}`;
+    return block;
+  }).join(`\n\n${SEPARATOR}\n\n`);
+
+  return `🛒 NEW ORDER RECEIVED
+
+${SEPARATOR}
+
+${productBlocks}
+
+${SEPARATOR}
+
+👤 Customer
+
+Name:
+${customerName || 'N/A'}
+
+Phone:
+${phone || 'N/A'}
+
+Email:
+${email || 'N/A'}
+
+${SEPARATOR}
+
+📍 Shipping Address
+
+${customerName || 'N/A'}
+
+${address || 'N/A'}
+
+${country || 'N/A'}
+
+${SEPARATOR}
+
+💳 Payment
+
+Method:
+${paymentMethod || 'Online'}
+
+Status:
+${paymentStatus || 'Paid'}
+
+Order Total:
+${currencySymbol}${typeof total === 'number' ? total.toFixed(2) : total}
+
+Order ID:
+${orderId}
+
+Date:
+${formatTime(createdTime)}
+
+${SEPARATOR}`;
+}
+
+function formatNotificationHtml(orderData) {
+  const {
+    orderId,
+    customerName,
+    phone,
+    email,
+    address,
+    country,
+    total,
+    currencySymbol = '€',
+    paymentStatus = 'Paid',
+    paymentMethod = 'Online',
+    createdTime,
+    items = []
+  } = orderData;
+
+  const productBlocks = items.map((item, idx) => {
+    const f = itemFields(item, currencySymbol);
+    const header = items.length > 1 ? `📦 Product #${idx + 1}` : '📦 Product';
+    let block = `<b>${header}</b>
+
+• Jersey:
+${escapeHtml(f.name)}
+
+• Version:
+${escapeHtml(f.version)}
+
+• Size:
+${escapeHtml(f.size)}
+
+• Category:
+${escapeHtml(f.category)}
+
+• Season:
+${escapeHtml(f.season)}
+
+• Quantity:
+${f.qty}
+
+• Price:
+${escapeHtml(f.price)}`;
+    if (f.player) block += `
+
+• Player Name:
+${escapeHtml(f.player)}`;
+    return block;
+  }).join(`\n\n${SEPARATOR}\n\n`);
+
+  return `🛒 <b>NEW ORDER RECEIVED</b>
+
+${SEPARATOR}
+
+${productBlocks}
+
+${SEPARATOR}
+
+<b>👤 Customer</b>
+
+Name:
+${escapeHtml(customerName || 'N/A')}
+
+Phone:
+${escapeHtml(phone || 'N/A')}
+
+Email:
+${escapeHtml(email || 'N/A')}
+
+${SEPARATOR}
+
+<b>📍 Shipping Address</b>
+
+${escapeHtml(customerName || 'N/A')}
+
+${escapeHtml(address || 'N/A')}
+
+${escapeHtml(country || 'N/A')}
+
+${SEPARATOR}
+
+<b>💳 Payment</b>
+
+Method:
+${escapeHtml(paymentMethod || 'Online')}
+
+Status:
+${escapeHtml(paymentStatus || 'Paid')}
+
+Order Total:
+${escapeHtml(currencySymbol)}${typeof total === 'number' ? total.toFixed(2) : escapeHtml(total)}
+
+Order ID:
+${escapeHtml(orderId)}
+
+Date:
+${escapeHtml(formatTime(createdTime))}
+
+${SEPARATOR}`;
+}
+
+function shortPhotoCaption(item, currencySymbol) {
+  const f = itemFields(item, currencySymbol);
+  return `🛒 <b>NEW ORDER RECEIVED</b>\n${escapeHtml(f.name)}\n${escapeHtml(f.version)} • ${escapeHtml(f.size)} • Qty ${f.qty}\n<b>${escapeHtml(f.price)}</b>`;
 }
 
 function tgPost(method, body) {
@@ -85,7 +276,7 @@ function tgPost(method, body) {
     const opts = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
-      timeout: 15000
+      timeout: 20000
     };
     const req = https.request(url, opts, res => {
       let r = '';
@@ -97,6 +288,34 @@ function tgPost(method, body) {
     req.write(data);
     req.end();
   });
+}
+
+function isRetryable(result) {
+  if (!result.ok) {
+    const code = result.error_code;
+    if (code === 429 || (code >= 500 && code < 600)) return true;
+  }
+  return false;
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function tgCall(method, body) {
+  const attempt = async () => {
+    try {
+      return await tgPost(method, body);
+    } catch (err) {
+      return { ok: false, networkError: true, description: err.message };
+    }
+  };
+  const first = await attempt();
+  if (first.ok) return first;
+  if (first.networkError || isRetryable(first)) {
+    console.warn(`[Notification] ${method} failed (${first.description || first.error_code}), retrying once...`);
+    await sleep(2000);
+    return attempt();
+  }
+  return first;
 }
 
 function downloadImage(url) {
@@ -112,7 +331,7 @@ function downloadImage(url) {
         'Referer': `https://${target.hostname}/`,
         'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
       },
-      timeout: 15000
+      timeout: 20000
     };
     const chunks = [];
     const req = mod.get(opts, res => {
@@ -128,47 +347,74 @@ function downloadImage(url) {
   });
 }
 
-async function sendTelegram(message, items = []) {
+function detectMime(buffer) {
+  if (buffer[0] === 0x89 && buffer[1] === 0x50) return 'image/png';
+  if (buffer[0] === 0x47 && buffer[1] === 0x49) return 'image/gif';
+  if (buffer[0] === 0x52 && buffer[1] === 0x49) return 'image/webp';
+  if (buffer[0] === 0x42 && buffer[1] === 0x4d) return 'image/bmp';
+  return 'image/jpeg';
+}
+
+async function sendTelegram(orderData) {
   if (!TG_BOT_TOKEN || !TG_CHAT_IDS.length) return false;
+
+  const message = formatNotificationMessage(orderData);
+  const html = formatNotificationHtml(orderData);
+  const items = orderData.items || [];
+  const firstItem = items[0] || {};
+  const imgUrl = firstItem.image_url;
+
+  console.log(`[Notification] Image URL: ${imgUrl ? imgUrl.substring(0, 80) + '...' : 'NONE (will send text only)'}`);
+  console.log(`[Notification] Caption length: ${html.length} chars`);
+
   let anySuccess = false;
+
   for (const chatId of TG_CHAT_IDS) {
     try {
-      // Send text message first
-      const msgResult = await tgPost('sendMessage', { chat_id: chatId, text: message });
-      if (msgResult.ok) {
-        console.log(`[Notification] Telegram message sent to ${chatId}`);
-        anySuccess = true;
-      } else {
-        console.warn(`[Notification] Telegram message to ${chatId} failed:`, msgResult.description || 'unknown');
-      }
-
-      // Then try sending each jersey image (download + base64, independent)
-      for (const item of items) {
-        const imgUrl = item.image_url;
-        if (!imgUrl) continue;
+      if (imgUrl) {
+        let photoSent = false;
         try {
-          console.log(`[Notification] Downloading image for ${item.jersey_name}: ${imgUrl.substring(0, 80)}...`);
+          console.log(`[Notification] Downloading image for ${firstItem.jersey_name}...`);
           const imgBuffer = await downloadImage(imgUrl);
-          const b64 = imgBuffer.toString('base64');
-          // Detect MIME from magic bytes
-          let mime = 'image/jpeg';
-          if (imgBuffer[0] === 0x89 && imgBuffer[1] === 0x50) mime = 'image/png';
-          else if (imgBuffer[0] === 0x47 && imgBuffer[1] === 0x49) mime = 'image/gif';
-          else if (imgBuffer[0] === 0x52 && imgBuffer[1] === 0x49) mime = 'image/webp';
-          const dataUri = `data:${mime};base64,${b64}`;
-          const caption = `${item.jersey_name || 'Jersey'} — ${item.club || ''} ${item.season || ''} (${item.size}, Qty: ${item.quantity})`.substring(0, 1024);
-          const photoResult = await tgPost('sendPhoto', {
+          const dataUri = `data:${detectMime(imgBuffer)};base64,${imgBuffer.toString('base64')}`;
+
+          // Caption must fit Telegram's 1024-char sendPhoto limit
+          const caption = html.length <= 1000 ? html : shortPhotoCaption(firstItem, orderData.currencySymbol || '€');
+          const photoResult = await tgCall('sendPhoto', {
             chat_id: chatId,
             photo: dataUri,
-            caption
+            caption,
+            parse_mode: 'HTML'
           });
           if (photoResult.ok) {
-            console.log(`[Notification] Telegram image sent to ${chatId} for ${item.jersey_name}`);
+            console.log(`[Notification] Telegram photo sent to ${chatId}`);
+            anySuccess = true;
+            photoSent = true;
           } else {
-            console.warn(`[Notification] Telegram photo to ${chatId} failed:`, photoResult.description || 'unknown');
+            console.warn(`[Notification] sendPhoto to ${chatId} failed:`, photoResult.description || photoResult.error_code || 'unknown');
           }
         } catch (imgErr) {
-          console.warn(`[Notification] Image error for ${item.jersey_name}:`, imgErr.message);
+          console.warn(`[Notification] Image processing error for ${firstItem.jersey_name}:`, imgErr.message);
+        }
+
+        // If the full details didn't fit in the photo caption, send them separately
+        if (html.length > 1000 || !photoSent) {
+          const msgResult = await tgCall('sendMessage', { chat_id: chatId, text: html, parse_mode: 'HTML' });
+          if (msgResult.ok) {
+            console.log(`[Notification] Telegram full details sent to ${chatId}`);
+            anySuccess = true;
+          } else {
+            console.warn(`[Notification] sendMessage to ${chatId} failed:`, msgResult.description || msgResult.error_code || 'unknown');
+          }
+        }
+      } else {
+        // No image URL → fallback to sendMessage
+        const msgResult = await tgCall('sendMessage', { chat_id: chatId, text: html, parse_mode: 'HTML' });
+        if (msgResult.ok) {
+          console.log(`[Notification] Telegram message sent to ${chatId} (no image)`);
+          anySuccess = true;
+        } else {
+          console.warn(`[Notification] sendMessage to ${chatId} failed:`, msgResult.description || msgResult.error_code || 'unknown');
         }
       }
     } catch (err) {
@@ -235,9 +481,8 @@ async function notifyOrder(orderData) {
   console.log(message);
   console.log('-----------------------------------------------\n');
 
-  // Priority 1: Telegram (free) — send images + message
-  const items = orderData.items || [];
-  const tgSuccess = await sendTelegram(message, items);
+  // Priority 1: Telegram (free) — sendPhoto with image + full caption
+  const tgSuccess = await sendTelegram(orderData);
   console.log(`[Notification] Telegram result for ORD-${orderIdKey}: ${tgSuccess ? 'SENT' : 'FAILED (no channel configured or all failed)'}`);
   if (tgSuccess) return;
 

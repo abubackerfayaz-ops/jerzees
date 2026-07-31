@@ -84,8 +84,12 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           [orderId]
         );
         if (order) {
+          const addr = await db.get(
+            `SELECT street, country FROM addresses WHERE id = $1`,
+            [order.shipping_address_id]
+          );
           const items = await db.all(
-            `SELECT oi.*, j.name as jersey_name,
+            `SELECT oi.*, j.name as jersey_name, j.season, j.type as category,
                     (SELECT image_url FROM jersey_images WHERE jersey_id = j.id ORDER BY sort_order LIMIT 1) as image_url
              FROM order_items oi JOIN jerseys j ON oi.jersey_id = j.id
              WHERE oi.order_id = $1`,
@@ -94,8 +98,14 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           notifyOrder({
             orderId: order.id,
             customerName: order.customer_name,
+            phone: order.phone || 'N/A',
+            email: order.email || 'N/A',
+            address: addr?.street || 'N/A',
+            country: addr?.country || 'N/A',
             total: order.total,
+            currencySymbol: '€',
             paymentStatus: 'Paid',
+            paymentMethod: 'Stripe',
             createdTime: new Date().toISOString(),
             items
           }).catch(err => console.error('Stripe webhook notifyOrder error:', err.message));
@@ -900,7 +910,7 @@ app.post('/api/checkout', async (req, res) => {
     // Send complete structured notification
     try {
       const notifItems = await db.all(
-        `SELECT oi.*, j.name as jersey_name, j.season, t.name as club,
+        `SELECT oi.*, j.name as jersey_name, j.season, j.type as category, t.name as club,
                 (SELECT image_url FROM jersey_images WHERE jersey_id = j.id ORDER BY sort_order LIMIT 1) as image_url
          FROM order_items oi
          JOIN jerseys j ON oi.jersey_id = j.id
@@ -918,6 +928,7 @@ app.post('/api/checkout', async (req, res) => {
         total,
         currencySymbol: currency_symbol || '€',
         paymentStatus: 'Paid',
+        paymentMethod: 'Online',
         createdTime: new Date().toISOString(),
         items: notifItems
       }).catch(err => console.error('notifyOrder error:', err.message));
