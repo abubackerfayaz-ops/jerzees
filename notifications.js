@@ -161,9 +161,10 @@ ${formatTime(createdTime)}
 ${SEPARATOR}`;
 }
 
-function shortPhotoCaption(item, currencySymbol) {
+function shortPhotoCaption(item, currencySymbol, index, total) {
   const f = itemFields(item, currencySymbol);
-  return `🛒 NEW ORDER RECEIVED\n${f.name}\n${f.version} • ${f.size} • Qty ${f.qty}\n${f.price}`;
+  const label = total > 1 ? ` (${index + 1}/${total})` : '';
+  return `🛒 NEW ORDER RECEIVED${label}\n${f.name}\n${f.version} • ${f.size} • Qty ${f.qty}\n${f.price}`;
 }
 
 function tgPost(method, body) {
@@ -297,10 +298,9 @@ async function sendTelegram(orderData) {
 
   const message = formatNotificationMessage(orderData);
   const items = orderData.items || [];
-  const firstItem = items[0] || {};
-  const imgUrl = firstItem.image_url;
+  const imageItems = items.filter(item => item.image_url);
 
-  console.log(`[Notification] Image URL: ${imgUrl ? imgUrl.substring(0, 80) + '...' : 'NONE (will send text only)'}`);
+  console.log(`[Notification] Images to send: ${imageItems.length} of ${items.length} items`);
 
   let anySuccess = false;
 
@@ -316,22 +316,23 @@ async function sendTelegram(orderData) {
         console.warn(`[Notification] sendMessage to ${chatId} failed:`, msgResult.description || msgResult.error_code || 'unknown');
       }
 
-      // 2) Then attach the ordered jersey image via multipart upload.
+      // 2) Then attach an image for EVERY ordered jersey via multipart upload.
       //    NOTE: Telegram does NOT accept data: URIs — must upload raw bytes.
-      if (imgUrl) {
+      for (let i = 0; i < imageItems.length; i++) {
+        const item = imageItems[i];
         try {
-          console.log(`[Notification] Downloading image for ${firstItem.jersey_name}...`);
-          const imgBuffer = await downloadImage(imgUrl);
+          console.log(`[Notification] Downloading image for ${item.jersey_name}...`);
+          const imgBuffer = await downloadImage(item.image_url);
           const mime = detectMime(imgBuffer);
-          const caption = shortPhotoCaption(firstItem, orderData.currencySymbol || '€');
+          const caption = shortPhotoCaption(item, orderData.currencySymbol || '€', i, imageItems.length);
           const photoResult = await tgCall(() => tgUploadPhoto(chatId, imgBuffer, mime, caption));
           if (photoResult.ok) {
-            console.log(`[Notification] Telegram image sent to ${chatId} for ${firstItem.jersey_name}`);
+            console.log(`[Notification] Telegram image sent to ${chatId} for ${item.jersey_name}`);
           } else {
-            console.warn(`[Notification] sendPhoto to ${chatId} failed:`, photoResult.description || photoResult.error_code || 'unknown');
+            console.warn(`[Notification] sendPhoto to ${chatId} failed for ${item.jersey_name}:`, photoResult.description || photoResult.error_code || 'unknown');
           }
         } catch (imgErr) {
-          console.warn(`[Notification] Image processing error for ${firstItem.jersey_name}:`, imgErr.message);
+          console.warn(`[Notification] Image processing error for ${item.jersey_name}:`, imgErr.message);
         }
       }
     } catch (err) {
