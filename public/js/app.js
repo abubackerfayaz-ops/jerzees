@@ -458,6 +458,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let jerseys = await apiFetch(endpoint);
+    if (jerseys && jerseys.error) {
+      container.innerHTML = '<div class="cart-empty"><p>Couldn\'t load jerseys right now. Please check your connection and try again.</p></div>';
+      return;
+    }
     if (!Array.isArray(jerseys)) jerseys = [];
 
     if (!jerseys.length) {
@@ -498,6 +502,10 @@ document.addEventListener('DOMContentLoaded', () => {
     container.innerHTML = '<div class="cart-empty"><p>Loading exclusive products...</p></div>';
     
     const data = await apiFetch('/api/jerseys?featured=1');
+    if (data && data.error) {
+      container.innerHTML = '<div class="cart-empty"><p>Couldn\'t load products right now. Please try again.</p></div>';
+      return;
+    }
     const jerseys = Array.isArray(data) ? data : [];
     if (!jerseys.length) {
       container.innerHTML = '<div class="cart-empty"><p>No featured jerseys found.</p></div>';
@@ -536,6 +544,10 @@ document.addEventListener('DOMContentLoaded', () => {
     container.innerHTML = '<div class="cart-empty"><p>Loading teams...</p></div>';
 
     const data = await apiFetch('/api/teams');
+    if (data && data.error) {
+      container.innerHTML = '<div class="cart-empty"><p>Couldn\'t load teams right now. Please try again.</p></div>';
+      return;
+    }
     const teams = Array.isArray(data) ? data : [];
     if (!teams.length) {
       container.innerHTML = '<div class="cart-empty"><p>No teams available.</p></div>';
@@ -564,6 +576,10 @@ document.addEventListener('DOMContentLoaded', () => {
     container.innerHTML = '<div class="cart-empty"><p>Loading team collection...</p></div>';
 
     const data = await apiFetch(`/api/jerseys?team_id=${teamId}`);
+    if (data && data.error) {
+      container.innerHTML = '<div class="cart-empty"><p>Couldn\'t load this collection right now. Please try again.</p></div>';
+      return;
+    }
     const jerseys = Array.isArray(data) ? data : [];
     
     if (!jerseys.length) {
@@ -584,7 +600,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <h4>${jersey.name}</h4>
           <span class="team-label">${jersey.team_name}</span>
           <div class="card-footer">
-            <span class="price">$${(jersey.version_fan || 20).toFixed(2)} - $${(jersey.version_retro || 25).toFixed(2)}</span>
+            <span class="price">${formatPrice(jersey.version_fan || 20)} - ${formatPrice(jersey.version_retro || 25)}</span>
             <span class="view-details-btn">View Options</span>
           </div>
         </div>
@@ -1164,7 +1180,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <div class="row" style="border-top:1px solid var(--border-color); padding-top:12px; margin-top:12px; font-weight:700;">
             <span>Total Paid</span>
-            <span style="color:var(--accent-gold); font-size:1.15rem;">$${order.total.toFixed(2)}</span>
+            <span style="color:var(--accent-gold); font-size:1.15rem;">${formatPrice(Number(order.total))}</span>
           </div>
         </div>
       </div>
@@ -1743,10 +1759,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return '<div class="confirmation-card" style="text-align:left;padding:28px;margin:16px 0;">' +
           '<div class="confirmation-details" style="border:none;padding:0;margin:0;">' +
           '<div class="row"><span>Order #' + o.id + '</span><span style="color:var(--green);text-transform:uppercase;">' + o.status + '</span></div>' +
-          (subtotal > 0 ? '<div class="row"><span>Jerseys</span><span>€' + subtotal.toFixed(2) + '</span></div>' : '') +
-          (printFee > 0 ? '<div class="row"><span>✏️ Custom Printing</span><span>€' + printFee.toFixed(2) + '</span></div>' : '') +
-          '<div class="row"><span>🚚 Shipping</span><span>€' + shipFee.toFixed(2) + '</span></div>' +
-          '<div class="row" style="font-weight:700;"><span>Grand Total</span><span style="color:var(--accent-gold);">€' + Number(o.total).toFixed(2) + '</span></div>' +
+          (subtotal > 0 ? '<div class="row"><span>Jerseys</span><span>' + formatPrice(subtotal) + '</span></div>' : '') +
+          (printFee > 0 ? '<div class="row"><span>✏️ Custom Printing</span><span>' + formatPrice(printFee) + '</span></div>' : '') +
+          '<div class="row"><span>🚚 Shipping</span><span>' + formatPrice(shipFee) + '</span></div>' +
+          '<div class="row" style="font-weight:700;"><span>Grand Total</span><span style="color:var(--accent-gold);">' + formatPrice(Number(o.total)) + '</span></div>' +
           '<div class="row" style="margin-bottom:0;"><span>' + new Date(o.created_at).toLocaleDateString() + '</span><span>' + o.item_count + ' item(s)</span></div>' +
           '</div></div>';
       }).join('');
@@ -2062,6 +2078,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function initCategoryFilters() {
+    // Hide category filter buttons that have no products (e.g. Tracksuit),
+    // based on the full catalog so dead buttons never show "no jerseys found".
+    apiGet('/api/jerseys?category=all').then(allData => {
+      if (Array.isArray(allData) && allData.length) {
+        const counts = {};
+        allData.forEach(j => { if (j.type) counts[j.type] = (counts[j.type] || 0) + 1; });
+        document.querySelectorAll('#category-filter-bar .cat-filter-btn').forEach(b => {
+          const cat = b.getAttribute('data-category');
+          const hasAny = cat === 'all' || (counts[cat] || 0) > 0;
+          b.style.display = hasAny ? '' : 'none';
+        });
+      }
+    });
+
     document.querySelectorAll('#category-filter-bar .cat-filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#category-filter-bar .cat-filter-btn').forEach(b => b.classList.remove('active'));
