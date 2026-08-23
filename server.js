@@ -89,7 +89,7 @@ if (process.env.ADMIN_PASSWORD && (process.env.ADMIN_PASSWORD.length < 8 || proc
 // ─── SECURITY & BODY PARSING MIDDLEWARE ─────────────────────────────────────
 
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? process.env.BASE_URL : '*',
+  origin: process.env.BASE_URL || '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id'],
   credentials: true,

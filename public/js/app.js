@@ -1655,7 +1655,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }, { threshold: 0.1 });
-  document.querySelectorAll('.fade-up').forEach(el => scrollFadeObserver.observe(el));
+  document.querySelectorAll('.fade-up').forEach(el => {
+    el.classList.add('animate-in');
+    scrollFadeObserver.observe(el);
+  });
 
   // ─── AUTH UI WIRING ─────────────────────────────────────────────────────
 
