@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JRZEES | Premium Football Kits &amp; Archive Jerseys</title>
   <meta name="description" content="Premium retro and classic football kits. Verified authentic. Museum-grade archive jerseys from the world's greatest clubs.">
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=1.0.4">
 </head>
 <body>
 
@@ -484,6 +484,26 @@
                 <label>Order Notes (Optional)</label>
                 <textarea name="notes" rows="2" placeholder="Instructions, customization preferences..."></textarea>
               </div>
+              <!-- Payment Method Selector -->
+              <div class="form-group" id="payment-method-group">
+                <label>Payment Method *</label>
+                <div class="payment-methods-grid">
+                  <label class="payment-method-card active" id="pay-cod-label">
+                    <input type="radio" name="payment_method" value="COD" checked style="display:none;">
+                    <div class="payment-card-content">
+                      <div class="payment-card-title">💵 Cash on Delivery</div>
+                      <div class="payment-card-desc">Pay with cash upon delivery.</div>
+                    </div>
+                  </label>
+                  <label class="payment-method-card" id="pay-ziina-label" style="display:none;">
+                    <input type="radio" name="payment_method" value="ziina" style="display:none;">
+                    <div class="payment-card-content">
+                      <div class="payment-card-title">💳 Online Payment</div>
+                      <div class="payment-card-desc">Pay securely via Apple Pay, Google Pay or Card.</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
             </div>
             <div class="checkout-summary-panel">
               <div style="font-family:var(--font-display); font-size:1.2rem; font-weight:900; text-transform:uppercase; letter-spacing:1px; margin-bottom:20px; color:var(--white);">Order Summary</div>
@@ -639,7 +659,6 @@
     <div id="search-results" class="search-results"></div>
   </div>
 
-  <script src="https://js.stripe.com/v3/"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="/js/app.js?v=1.0.3"></script>
 </body>

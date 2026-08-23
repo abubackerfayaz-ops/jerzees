@@ -12,10 +12,57 @@ const https = require('https');
 const http = require('http');
 const db = require('./database');
 
-let stripe = null;
-if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY.startsWith('sk_') && !process.env.STRIPE_SECRET_KEY.includes('XXXX')) {
-  stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// Ziina payment configuration
+const ZIINA_API_TOKEN = process.env.ZIINA_API_TOKEN || '';
+const ZIINA_WEBHOOK_SECRET = process.env.ZIINA_WEBHOOK_SECRET || '';
+const ZIINA_API_URL = process.env.ZIINA_API_URL || 'https://api-v2.ziina.com/api';
+const ZIINA_WEBHOOK_URL = process.env.ZIINA_WEBHOOK_URL || '';
+const ziinaConfigured = !!(ZIINA_API_TOKEN && ZIINA_API_TOKEN.length >= 20 && !ZIINA_API_TOKEN.includes('XXXX'));
+
+// Currencies Ziina can process. Amounts are passed in the base (minor) units.
+const ZIINA_SUPPORTED = ['AED', 'USD', 'EUR', 'GBP', 'INR', 'SAR', 'QAR', 'KWD', 'OMR', 'BHD'];
+const ZIINA_3DECIMAL = new Set(['BHD', 'KWD', 'OMR']);
+
+function ziinaBaseUnits(amountEur, currency) {
+  const rate = (exchangeRatesCache.rates && exchangeRatesCache.rates[currency]) || 1;
+  const value = amountEur * rate;
+  if (ZIINA_3DECIMAL.has(currency)) {
+    // Three-decimal currencies must be rounded to the nearest ten (fils)
+    return Math.round(Math.round(value * 1000 / 10) * 10);
+  }
+  return Math.round(value * 100);
 }
+
+// Generic authenticated HTTPS call to the Ziina API
+function ziinaRequest(method, endpoint, body) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(ZIINA_API_URL + endpoint);
+    const payload = body ? JSON.stringify(body) : null;
+    const req = https.request(url, {
+      method,
+      headers: {
+        'Authorization': `Bearer ${ZIINA_API_TOKEN}`,
+        'Content-Type': 'application/json',
+        ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {}),
+      },
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        let json = null;
+        try { json = JSON.parse(data); } catch (e) { /* non-JSON body */ }
+        if (res.statusCode >= 400) {
+          return reject(new Error(`Ziina API error ${res.statusCode}: ${data || (json && json.error) || 'unknown'}`));
+        }
+        resolve(json || data);
+      });
+    });
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
 const { notifyOrder } = require('./notifications');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -53,66 +100,114 @@ app.use(helmet({
   contentSecurityPolicy: false,
 }));
 
-// Stripe webhook must receive raw body (before any JSON parsing)
-app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  if (!stripe) return res.status(503).json({ error: 'Payment not configured' });
-  const sig = req.headers['stripe-signature'];
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  } catch (err) {
-    console.error('Stripe webhook signature verification failed:', err.message);
-    return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+// Ziina webhook must receive raw body (before any JSON parsing)
+app.post('/api/ziina-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!ziinaConfigured) return res.status(503).json({ error: 'Payment not configured' });
+
+  if (ZIINA_WEBHOOK_SECRET) {
+    const sig = req.headers['x-hmac-signature'];
+    if (!sig) {
+      console.error('Ziina webhook signature verification failed: signature header missing.');
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+    const expected = crypto.createHmac('sha256', ZIINA_WEBHOOK_SECRET).update(req.body).digest('hex');
+    const sigBuffer = Buffer.from(sig, 'hex');
+    const expectedBuffer = Buffer.from(expected, 'hex');
+    if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+      console.error('Ziina webhook signature verification failed.');
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
   }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    const orderId = session.metadata?.order_id;
-    if (orderId) {
-      await db.query(
-        `UPDATE orders SET payment_status = 'paid', status = 'confirmed', payment_method = 'stripe', updated_at = NOW()
-         WHERE id = $1`,
+  let event;
+  try {
+    event = JSON.parse(req.body.toString('utf8') || '{}');
+  } catch (err) {
+    return res.status(400).json({ error: 'Invalid payload' });
+  }
+
+  if (event.event === 'payment_intent.status.updated') {
+    const intent = event.data || {};
+    if (!intent.id) return res.json({ received: true });
+
+    const order = await db.get(
+      'SELECT id FROM orders WHERE stripe_session_id = $1',
+      [intent.id]
+    );
+    if (!order) {
+      console.log(`Ziina webhook: no order for payment intent ${intent.id}`);
+      return res.json({ received: true });
+    }
+    const orderId = order.id;
+
+    if (intent.status === 'completed') {
+      const updateRes = await db.query(
+        `UPDATE orders SET payment_status = 'paid', status = 'confirmed', payment_method = 'ziina', paid_at = NOW(), updated_at = NOW()
+         WHERE id = $1 AND payment_status != 'paid'`,
         [orderId]
       );
-      console.log(`Order #${orderId} marked as paid via Stripe.`);
+      if (updateRes.rowCount > 0) {
+        console.log(`Order #${orderId} marked as paid via Ziina webhook.`);
 
-      try {
-        const order = await db.get(
-          `SELECT o.*, c.name as customer_name
-           FROM orders o LEFT JOIN customers c ON o.customer_id = c.id
-           WHERE o.id = $1`,
-          [orderId]
-        );
-        if (order) {
-          const addr = await db.get(
-            `SELECT street, country FROM addresses WHERE id = $1`,
-            [order.shipping_address_id]
-          );
+        // Decrement variant stock here
+        try {
           const items = await db.all(
-            `SELECT oi.*, j.name as jersey_name, j.season, j.type as category,
-                    (SELECT image_url FROM jersey_images WHERE jersey_id = j.id ORDER BY sort_order LIMIT 1) as image_url
-             FROM order_items oi JOIN jerseys j ON oi.jersey_id = j.id
-             WHERE oi.order_id = $1`,
+            'SELECT variant_id, quantity FROM order_items WHERE order_id = $1',
             [orderId]
           );
-          notifyOrder({
-            orderId: order.id,
-            customerName: order.customer_name,
-            phone: order.phone || 'N/A',
-            email: order.email || 'N/A',
-            address: addr?.street || 'N/A',
-            country: addr?.country || 'N/A',
-            total: order.total,
-            currencySymbol: '€',
-            paymentStatus: 'Paid',
-            paymentMethod: 'Stripe',
-            createdTime: new Date().toISOString(),
-            items
-          }).catch(err => console.error('Stripe webhook notifyOrder error:', err.message));
+          for (const item of items) {
+            await db.query('UPDATE variants SET stock = stock - $1 WHERE id = $2', [item.quantity, item.variant_id]);
+          }
+          console.log(`Stock decremented for Order #${orderId} via Ziina webhook.`);
+        } catch (stockErr) {
+          console.error('Error decrementing stock on Ziina webhook:', stockErr.message);
         }
-      } catch (notifErr) {
-        console.error('Order notification error:', notifErr.message);
+
+        try {
+          const fullOrder = await db.get(
+            `SELECT o.*, c.name as customer_name
+             FROM orders o LEFT JOIN customers c ON o.customer_id = c.id
+             WHERE o.id = $1`,
+            [orderId]
+          );
+          if (fullOrder) {
+            const addr = await db.get(
+              `SELECT street, country FROM addresses WHERE id = $1`,
+              [fullOrder.shipping_address_id]
+            );
+            const items = await db.all(
+              `SELECT oi.*, j.name as jersey_name, j.season, j.type as category,
+                      (SELECT image_url FROM jersey_images WHERE jersey_id = j.id ORDER BY sort_order LIMIT 1) as image_url
+               FROM order_items oi JOIN jerseys j ON oi.jersey_id = j.id
+               WHERE oi.order_id = $1`,
+              [orderId]
+            );
+            notifyOrder({
+              orderId: fullOrder.id,
+              customerName: fullOrder.customer_name,
+              phone: fullOrder.phone || 'N/A',
+              email: fullOrder.email || 'N/A',
+              address: addr?.street || 'N/A',
+              country: addr?.country || 'N/A',
+              total: fullOrder.total,
+              currencySymbol: '€',
+              paymentStatus: 'Paid',
+              paymentMethod: 'Ziina',
+              createdTime: new Date().toISOString(),
+              items
+            }).catch(err => console.error('Ziina webhook notifyOrder error:', err.message));
+          }
+        } catch (notifErr) {
+          console.error('Order notification error:', notifErr.message);
+        }
       }
+    } else if (['failed', 'canceled'].includes(intent.status)) {
+      await db.query(
+        `UPDATE orders SET payment_status = 'failed', updated_at = NOW()
+         WHERE id = $1 AND payment_status NOT IN ('paid', 'refunded')`,
+        [orderId]
+      );
+      console.log(`Order #${orderId} payment ${intent.status} via Ziina.`);
     }
   }
 
@@ -160,6 +255,9 @@ const apiLimiter = rateLimit({
 app.use('/api/', apiLimiter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
+
+// Health check / keep-alive ping (prevents Render free tier sleep)
+app.get('/ping', (req, res) => res.status(200).send('ok'));
 
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: false,
@@ -404,26 +502,29 @@ app.get('/api/exchange-rates', async (req, res) => {
   });
 });
 
-// ─── STRIPE ──────────────────────────────────────────────────────────────────
+// ─── ZIINA PAYMENT ──────────────────────────────────────────────────────────
 
-// Return public Stripe key to frontend
-app.get('/api/stripe-config', (req, res) => {
-  res.json({ publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '', configured: !!stripe });
+// Return payment configuration to frontend
+app.get('/api/ziina-config', (req, res) => {
+  res.json({ configured: ziinaConfigured });
 });
 
-// Create Stripe Checkout Session for a new order
-app.post('/api/create-checkout-session', async (req, res) => {
-  if (!stripe) return res.status(503).json({ error: 'Stripe not configured. Use the legacy checkout endpoint /api/orders instead.' });
+// Create a Ziina Payment Intent for a new order
+app.post('/api/create-payment-intent', async (req, res) => {
+  if (!ziinaConfigured) return res.status(503).json({ error: 'Ziina not configured. Use the legacy checkout endpoint /api/checkout instead.' });
   try {
-    const { customer_name, email, phone, address, notes, items } = req.body;
-    if (!customer_name || !email || !address || !items || !items.length) {
+    const { customer_name, email, phone, address, country, notes, items, currency, checkout_id } = req.body;
+    if (!customer_name || !email || !address || !items || !items.length || !checkout_id) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Resolve variants and compute totals
+    // Ziina charges in the customer's selected currency when supported, else EUR
+    const currencyCode = (currency || 'EUR').toUpperCase();
+    const chargeCurrency = ZIINA_SUPPORTED.includes(currencyCode) ? currencyCode : 'EUR';
+
+    // Resolve variants and compute totals (base currency: EUR)
     let subtotal = 0;
     let namePrintingCount = 0;
-    const lineItems = [];
 
     for (const item of items) {
       const variant = await db.get(
@@ -437,38 +538,14 @@ app.post('/api/create-checkout-session', async (req, res) => {
       item.price = variant.price;
       subtotal += variant.price * item.quantity;
       if (item.name_text && item.name_text.trim()) namePrintingCount++;
-
-      // Fetch jersey name for the product description
-      const jersey = await db.get('SELECT name FROM jerseys WHERE id = $1', [item.jersey_id]);
-
-      lineItems.push({
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: jersey ? jersey.name : 'Jersey',
-            description: `${item.version} fit - Size ${item.size}${item.name_text ? ` (Print: ${item.name_text})` : ''}`,
-          },
-          unit_amount: Math.round((variant.price + (item.name_text ? 5 : 0)) * 100), // cents
-        },
-        quantity: item.quantity,
-      });
     }
 
     const deliveryFee = 5;
     const namePrintFee = namePrintingCount * 5;
     const total = subtotal + deliveryFee + namePrintFee;
+    const amount = ziinaBaseUnits(total, chargeCurrency);
 
-    // Add delivery as a line item
-    lineItems.push({
-      price_data: {
-        currency: 'usd',
-        product_data: { name: 'Flat Delivery Fee' },
-        unit_amount: deliveryFee * 100,
-      },
-      quantity: 1,
-    });
-
-    // Create or find customer
+    // Create or find customer & address
     let customer = await db.get('SELECT id FROM customers WHERE email = $1', [email]);
     if (!customer) {
       const c = await db.query(
@@ -478,49 +555,70 @@ app.post('/api/create-checkout-session', async (req, res) => {
       customer = c.rows[0];
     }
 
-    // Create address
+    const countryName = country || 'United Kingdom';
     const addr = await db.query(
       `INSERT INTO addresses (customer_id, label, street, city, country, is_default)
-       VALUES ($1, 'Shipping', $2, '', 'US', 1) RETURNING id`,
-      [customer.id, address]
+       VALUES ($1, 'Shipping', $2, '', $3, 1) RETURNING id`,
+      [customer.id, address, countryName]
     );
 
-    // Create order (status: pending, unpaid)
-    const orderRes = await db.query(
-      `INSERT INTO orders (customer_id, email, phone, shipping_address_id, notes, subtotal, delivery_fee, name_printing_fee, total, status, payment_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', 'unpaid') RETURNING id`,
-      [customer.id, email, phone || null, addr.rows[0].id, notes || null, subtotal, deliveryFee, namePrintFee, total]
+    let orderId;
+    let existingOrder = await db.get(
+      'SELECT id, stripe_session_id, total FROM orders WHERE checkout_id = $1',
+      [checkout_id]
     );
-    const orderId = orderRes.rows[0].id;
 
-    // Insert order items and decrement stock
-    for (const item of items) {
-      await db.query(
-        `INSERT INTO order_items (order_id, jersey_id, variant_id, size, version, name_text, quantity, unit_price)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [orderId, item.jersey_id, item.variant_id, item.size, item.version, item.name_text || null, item.quantity, item.price]
+    if (existingOrder) {
+      orderId = existingOrder.id;
+      // If payment intent was already created and is valid, return it to prevent double intents
+      if (existingOrder.stripe_session_id && existingOrder.stripe_session_id !== checkout_id) {
+        try {
+          const intent = await ziinaRequest('GET', `/payment_intent/${encodeURIComponent(existingOrder.stripe_session_id)}`);
+          if (intent && intent.redirect_url) {
+            return res.json({ url: intent.redirect_url, intent_id: intent.id, order_id: orderId });
+          }
+        } catch (err) {
+          console.error('Failed to retrieve existing Ziina intent:', err.message);
+        }
+      }
+    } else {
+      // Create order (status: pending, unpaid)
+      const orderRes = await db.query(
+        `INSERT INTO orders (customer_id, email, phone, shipping_address_id, notes, subtotal, delivery_fee, name_printing_fee, total, status, payment_status, payment_method, checkout_id, stripe_session_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', 'unpaid', 'ziina', $10, $10) RETURNING id`,
+        [customer.id, email, phone || null, addr.rows[0].id, notes || null, subtotal, deliveryFee, namePrintFee, total, checkout_id]
       );
-      await db.query('UPDATE variants SET stock = stock - $1 WHERE id = $2', [item.quantity, item.variant_id]);
+      orderId = orderRes.rows[0].id;
+
+      // Insert order items (but DO NOT decrement stock yet!)
+      for (const item of items) {
+        await db.query(
+          `INSERT INTO order_items (order_id, jersey_id, variant_id, size, version, name_text, quantity, unit_price)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [orderId, item.jersey_id, item.variant_id, item.size, item.version, item.name_text || null, item.quantity, item.price]
+        );
+      }
     }
 
-    // Create Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      mode: 'payment',
-      customer_email: email,
-      metadata: { order_id: orderId },
-      line_items: lineItems,
-      success_url: `${BASE_URL}/?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${BASE_URL}/?checkout=cancel`,
+    // Create Ziina Payment Intent (hosted page redirect)
+    const intent = await ziinaRequest('POST', '/payment_intent', {
+      amount,
+      currency_code: chargeCurrency,
+      message: `Kickoff Jerseys - Order #${orderId}`,
+      success_url: `${BASE_URL}/?checkout=success&order_id=${orderId}`,
+      cancel_url: `${BASE_URL}/?checkout=cancel&order_id=${orderId}`,
+      failure_url: `${BASE_URL}/?checkout=failed&order_id=${orderId}`,
+      operation_id: checkout_id,
+      ...(process.env.NODE_ENV !== 'production' ? { test: true } : {}),
     });
 
-    // Store Stripe session ID on the order
-    await db.query('UPDATE orders SET stripe_session_id = $1 WHERE id = $2', [session.id, orderId]);
+    // Store Ziina payment intent ID on the order
+    await db.query('UPDATE orders SET stripe_session_id = $1 WHERE id = $2', [intent.id, orderId]);
 
-    res.json({ url: session.url, session_id: session.id, order_id: orderId });
+    res.json({ url: intent.redirect_url, intent_id: intent.id, order_id: orderId });
   } catch (err) {
-    console.error('Stripe checkout error:', err);
-    res.status(500).json({ error: 'Failed to create checkout session' });
+    console.error('Ziina payment intent error:', err.message);
+    res.status(500).json({ error: 'Failed to create payment. Please try again or contact support.' });
   }
 });
 
@@ -541,10 +639,13 @@ app.get('/api/teams', async (req, res) => {
 
 app.get('/api/teams/:slug', async (req, res) => {
   try {
+    const param = req.params.slug;
+    const isNumericId = /^\d+$/.test(param);
     const team = await db.get(
-      `SELECT t.*, (SELECT COUNT(*) FROM jerseys WHERE team_id = t.id) as jersey_count
-       FROM teams t WHERE t.slug = $1 OR t.id = $2`,
-      [req.params.slug, req.params.slug]
+      isNumericId
+        ? `SELECT t.*, (SELECT COUNT(*) FROM jerseys WHERE team_id = t.id) as jersey_count FROM teams t WHERE t.id = $1`
+        : `SELECT t.*, (SELECT COUNT(*) FROM jerseys WHERE team_id = t.id) as jersey_count FROM teams t WHERE t.slug = $1`,
+      [param]
     );
     if (!team) return res.status(404).json({ error: 'Team not found' });
     res.json(team);
@@ -809,9 +910,20 @@ app.post('/api/cart/clear', async (req, res) => {
 
 app.post('/api/checkout', async (req, res) => {
   try {
-    const { customer_name, email, phone, address, country, notes, currency_symbol } = req.body;
+    const { customer_name, email, phone, address, country, notes, currency_symbol, checkout_id, payment_method } = req.body;
     if (!customer_name || !email || !address) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // COD Idempotency Check
+    if (checkout_id) {
+      const existingOrder = await db.get(
+        `SELECT id, total FROM orders WHERE checkout_id = $1`,
+        [checkout_id]
+      );
+      if (existingOrder) {
+        return res.json({ order_id: existingOrder.id, total: existingOrder.total, delivery_fee: 5, name_printing_fee: 0, already_placed: true });
+      }
     }
 
     let cartItems = await db.all(
@@ -884,15 +996,19 @@ app.post('/api/checkout', async (req, res) => {
     const namePrintFee = namePrintingCount * 5;
     const total = subtotal + deliveryFee + namePrintFee;
 
+    const pMethod = payment_method || 'COD';
+    const status = pMethod === 'COD' ? 'pending' : 'confirmed';
+    const paymentStatus = pMethod === 'COD' ? 'unpaid' : 'paid';
+
     // Create order
     const orderRes = await db.query(
-      `INSERT INTO orders (customer_id, email, phone, shipping_address_id, notes, subtotal, delivery_fee, name_printing_fee, total, status, payment_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'confirmed', 'paid') RETURNING id`,
-      [customer.id, email, phone || null, addressId, notes || null, subtotal, deliveryFee, namePrintFee, total]
+      `INSERT INTO orders (customer_id, email, phone, shipping_address_id, notes, subtotal, delivery_fee, name_printing_fee, total, status, payment_status, payment_method, checkout_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+      [customer.id, email, phone || null, addressId, notes || null, subtotal, deliveryFee, namePrintFee, total, status, paymentStatus, pMethod, checkout_id || null]
     );
     const orderId = orderRes.rows[0].id;
 
-    // Create order items and decrement stock
+    // Create order items and decrement stock (COD confirms immediately)
     for (const item of cartItems) {
       await db.query(
         `INSERT INTO order_items (order_id, jersey_id, variant_id, size, version, name_text, quantity, unit_price)
@@ -927,8 +1043,8 @@ app.post('/api/checkout', async (req, res) => {
         country: countryName,
         total,
         currencySymbol: currency_symbol || '€',
-        paymentStatus: 'Paid',
-        paymentMethod: 'Online',
+        paymentStatus: pMethod === 'COD' ? 'Unpaid' : 'Paid',
+        paymentMethod: pMethod,
         createdTime: new Date().toISOString(),
         items: notifItems
       }).catch(err => console.error('notifyOrder error:', err.message));
@@ -945,9 +1061,19 @@ app.post('/api/checkout', async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const { customer_name, email, phone, address, country, notes, items, currency_symbol } = req.body;
+    const { customer_name, email, phone, address, country, notes, items, currency_symbol, checkout_id, payment_method } = req.body;
     if (!customer_name || !email || !address || !items || !items.length) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (checkout_id) {
+      const existingOrder = await db.get(
+        `SELECT id, total FROM orders WHERE checkout_id = $1`,
+        [checkout_id]
+      );
+      if (existingOrder) {
+        return res.json({ order_id: existingOrder.id, total: existingOrder.total, delivery_fee: 5, name_printing_fee: 0, already_placed: true });
+      }
     }
 
     let subtotal = 0;
@@ -987,10 +1113,14 @@ app.post('/api/orders', async (req, res) => {
       [customer.id, address, countryName]
     );
 
+    const pMethod = payment_method || 'COD';
+    const status = pMethod === 'COD' ? 'pending' : 'confirmed';
+    const paymentStatus = pMethod === 'COD' ? 'unpaid' : 'paid';
+
     const orderRes = await db.query(
-      `INSERT INTO orders (customer_id, email, phone, shipping_address_id, notes, subtotal, delivery_fee, name_printing_fee, total, status, payment_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'confirmed', 'paid') RETURNING id`,
-      [customer.id, email, phone || null, addr.rows[0].id, notes || null, subtotal, deliveryFee, namePrintFee, total]
+      `INSERT INTO orders (customer_id, email, phone, shipping_address_id, notes, subtotal, delivery_fee, name_printing_fee, total, status, payment_status, payment_method, checkout_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+      [customer.id, email, phone || null, addr.rows[0].id, notes || null, subtotal, deliveryFee, namePrintFee, total, status, paymentStatus, pMethod, checkout_id || null]
     );
     const orderId = orderRes.rows[0].id;
 
@@ -1024,7 +1154,8 @@ app.post('/api/orders', async (req, res) => {
         country: countryName,
         total,
         currencySymbol: currency_symbol || '€',
-        paymentStatus: 'Paid',
+        paymentStatus: pMethod === 'COD' ? 'Unpaid' : 'Paid',
+        paymentMethod: pMethod,
         createdTime: new Date().toISOString(),
         items: notifItems
       });
@@ -1039,18 +1170,52 @@ app.post('/api/orders', async (req, res) => {
 
 app.get('/api/orders/:id', async (req, res) => {
   try {
-    // Support lookup by numeric order ID or Stripe session ID (prefixed with cs_)
-    const isStripeSession = req.params.id.startsWith('cs_');
+    // Support lookup by numeric order ID or by payment intent ID
+    const isPaymentIntent = !/^\d+$/.test(req.params.id) && req.params.id.length > 8;
     const order = await db.get(
       `SELECT o.*, c.name as customer_name, c.email as customer_email,
               a.street as address, a.country as address_country
        FROM orders o
        LEFT JOIN customers c ON o.customer_id = c.id
        LEFT JOIN addresses a ON o.shipping_address_id = a.id
-       WHERE ${isStripeSession ? 'o.stripe_session_id' : 'o.id'} = $1`,
+       WHERE ${isPaymentIntent ? 'o.stripe_session_id' : 'o.id'} = $1`,
       [req.params.id]
     );
     if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    // When looked up by payment intent, sync the latest status from Ziina
+    if (isPaymentIntent && ziinaConfigured) {
+      try {
+        const intent = await ziinaRequest('GET', `/payment_intent/${encodeURIComponent(req.params.id)}`);
+        if (intent && intent.status === 'completed' && order.payment_status !== 'paid') {
+          const updateRes = await db.query(
+            `UPDATE orders SET payment_status = 'paid', status = 'confirmed', payment_method = 'ziina', paid_at = NOW(), updated_at = NOW()
+             WHERE id = $1 AND payment_status != 'paid'`,
+            [order.id]
+          );
+          if (updateRes.rowCount > 0) {
+            const orderItems = await db.all(
+              'SELECT variant_id, quantity FROM order_items WHERE order_id = $1',
+              [order.id]
+            );
+            for (const item of orderItems) {
+              await db.query('UPDATE variants SET stock = stock - $1 WHERE id = $2', [item.quantity, item.variant_id]);
+            }
+          }
+          order.payment_status = 'paid';
+          order.status = 'confirmed';
+          order.payment_method = 'ziina';
+        } else if (intent && ['failed', 'canceled'].includes(intent.status) && order.payment_status !== 'paid') {
+          await db.query(
+            `UPDATE orders SET payment_status = 'failed', updated_at = NOW() WHERE id = $1`,
+            [order.id]
+          );
+          order.payment_status = 'failed';
+        }
+      } catch (intentErr) {
+        console.error('Ziina intent lookup error:', intentErr.message);
+      }
+    }
 
     const items = await db.all(
       `SELECT oi.*, j.name as jersey_name, t.name as team_name, t.slug as team_slug
@@ -1058,7 +1223,7 @@ app.get('/api/orders/:id', async (req, res) => {
        JOIN jerseys j ON oi.jersey_id = j.id
        JOIN teams t ON j.team_id = t.id
        WHERE oi.order_id = $1`,
-      [req.params.id]
+      [order.id]
     );
 
     res.json({ ...order, items });
@@ -1070,7 +1235,7 @@ app.get('/api/orders/:id', async (req, res) => {
 
 // ─── ADMIN: ALL ORDERS ───────────────────────────────────────────────────────
 
-app.get('/api/admin/orders', async (req, res) => {
+app.get('/api/admin/orders', adminRequired, async (req, res) => {
   try {
     const orders = await db.all(
       `SELECT o.*, c.name as customer_name,
@@ -1374,6 +1539,17 @@ async function start() {
   } catch (err) {
     console.error('Database connection failed:', err.message);
     console.error('Server will start but database features will be unavailable.');
+  }
+  if (ziinaConfigured && ZIINA_WEBHOOK_URL) {
+    try {
+      await ziinaRequest('POST', '/webhook', {
+        url: ZIINA_WEBHOOK_URL,
+        ...(ZIINA_WEBHOOK_SECRET ? { secret: ZIINA_WEBHOOK_SECRET } : {}),
+      });
+      console.log(`Ziina webhook registered at ${ZIINA_WEBHOOK_URL}`);
+    } catch (err) {
+      console.error('Failed to register Ziina webhook:', err.message);
+    }
   }
   app.listen(PORT, () => {
     console.log(`Kickoff Jerseys ecommerce running on http://localhost:${PORT}`);

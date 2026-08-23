@@ -46,6 +46,26 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${symbol}${converted.toFixed(2)}`;
   }
 
+  // Returns a deterministic fake "original" price in EUR for a jersey (80 / 100 / 120)
+  function getOriginalPrice(jersey) {
+    const originalPrices = [80, 100, 120];
+    const idNum = parseInt(String(jersey.id).replace(/\D/g, '') || '0', 10);
+    return originalPrices[idNum % originalPrices.length];
+  }
+
+  // Renders the price block with slashed original price + discount badge
+  function renderPriceBlock(jersey, saleMin, saleMax) {
+    const origEUR = getOriginalPrice(jersey);
+    const discountPct = Math.round((1 - saleMin / origEUR) * 100);
+    return `
+      <span class="price-block">
+        <span class="price-original">${formatPrice(origEUR)}</span>
+        <span class="price">${formatPrice(saleMin)} – ${formatPrice(saleMax)}</span>
+        <span class="discount-badge">-${discountPct}%</span>
+      </span>
+    `;
+  }
+
   // Pricing constants matching backend config
   const FEES = {
     delivery: 5,
@@ -464,12 +484,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!Array.isArray(jerseys)) jerseys = [];
 
-    if (!jerseys.length) {
-      const msg = searchTerm
-        ? `<p>No results found for "<strong>${searchTerm}</strong>". Try a different search.</p>`
-        : '<p>No jerseys found matching this category.</p>';
-      container.innerHTML = `<div class="cart-empty">${msg}</div>`;
+    if (!jerseys.length && searchTerm) {
+      container.innerHTML = `<div class="cart-empty"><p>No results found for "<strong>${searchTerm}</strong>". Try a different search.</p></div>`;
       return;
+    }
+
+    if (!jerseys.length) {
+      jerseys = await apiFetch('/api/jerseys');
+      if (!Array.isArray(jerseys)) jerseys = [];
+      if (titleEl) titleEl.innerHTML = 'Shop <span>All Kits</span>';
+      state.activeCategory = 'all';
+      document.querySelectorAll('#category-filter-bar .cat-filter-btn').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-category') === 'all');
+      });
     }
 
     container.innerHTML = jerseys.map(jersey => `
@@ -480,7 +507,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <h4>${jersey.name}</h4>
           <span class="team-label">${jersey.team_name}</span>
           <div class="card-footer">
-            <span class="price">${formatPrice(20)} - ${formatPrice(25)}</span>
+            ${renderPriceBlock(jersey, 20, 25)}
             <span class="view-details-btn">View Options</span>
           </div>
         </div>
@@ -522,7 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <h4>${jersey.name}</h4>
           <span class="team-label">${jersey.team_name}</span>
           <div class="card-footer">
-            <span class="price">${formatPrice(20)} - ${formatPrice(25)}</span>
+            ${renderPriceBlock(jersey, 20, 25)}
             <span class="view-details-btn">View Options</span>
           </div>
         </div>
@@ -600,7 +627,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <h4>${jersey.name}</h4>
           <span class="team-label">${jersey.team_name}</span>
           <div class="card-footer">
-            <span class="price">${formatPrice(jersey.version_fan || 20)} - ${formatPrice(jersey.version_retro || 25)}</span>
+            ${renderPriceBlock(jersey, jersey.version_fan || 20, jersey.version_retro || 25)}
             <span class="view-details-btn">View Options</span>
           </div>
         </div>
@@ -1059,10 +1086,56 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
     `;
+
+    // Fetch Ziina config to show or hide the Online Payment card
+    if (state.ziinaConfigured === undefined) {
+      fetch('/api/ziina-config')
+        .then(res => res.json())
+        .then(data => {
+          state.ziinaConfigured = data.configured;
+          const ziinaCard = document.getElementById('pay-ziina-label');
+          if (ziinaCard) {
+            ziinaCard.style.display = data.configured ? 'block' : 'none';
+          }
+        })
+        .catch(() => {
+          state.ziinaConfigured = false;
+        });
+    } else {
+      const ziinaCard = document.getElementById('pay-ziina-label');
+      if (ziinaCard) {
+        ziinaCard.style.display = state.ziinaConfigured ? 'block' : 'none';
+      }
+    }
+
+    // Generate/retrieve checkout_id to prevent double-charging/idempotency
+    if (!state.checkoutId) {
+      state.checkoutId = (typeof crypto !== 'undefined' && crypto.randomUUID) 
+        ? crypto.randomUUID() 
+        : Math.random().toString(36).substring(2) + Date.now().toString(36);
+    }
+
+    // Wire up payment method card selection handlers
+    const codLabel = document.getElementById('pay-cod-label');
+    const ziinaLabel = document.getElementById('pay-ziina-label');
+
+    if (codLabel && ziinaLabel) {
+      codLabel.onclick = (e) => {
+        e.preventDefault();
+        codLabel.classList.add('active');
+        ziinaLabel.classList.remove('active');
+        codLabel.querySelector('input[type="radio"]').checked = true;
+      };
+      ziinaLabel.onclick = (e) => {
+        e.preventDefault();
+        ziinaLabel.classList.add('active');
+        codLabel.classList.remove('active');
+        ziinaLabel.querySelector('input[type="radio"]').checked = true;
+      };
+    }
   }
 
   // Handle Place Order submit form
-  const checkoutForm = document.getElementById('checkout-form');
   checkoutForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const submitBtn = checkoutForm.querySelector('button[type="submit"]');
@@ -1072,6 +1145,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const formData = new FormData(checkoutForm);
     const selectedCountry = formData.get('country') || state.country || 'United Kingdom';
+    const paymentMethod = formData.get('payment_method') || 'COD';
+
     const orderData = {
       customer_name: formData.get('customer_name'),
       email: formData.get('email'),
@@ -1080,6 +1155,9 @@ document.addEventListener('DOMContentLoaded', () => {
       address: formData.get('address'),
       notes: formData.get('notes'),
       currency_symbol: state.currencySymbols[state.currency] || '€',
+      currency: state.currency,
+      checkout_id: state.checkoutId,
+      payment_method: paymentMethod,
       items: state.cart.map(item => ({
         jersey_id: item.jersey_id,
         size: item.size,
@@ -1090,33 +1168,28 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     try {
-      // Check if Stripe is configured (cached after first check)
-      if (state.stripeConfigured === undefined) {
-        try {
-          const cfg = await fetch('/api/stripe-config');
-          const cfgData = await cfg.json();
-          state.stripeConfigured = cfgData.configured;
-        } catch { state.stripeConfigured = false; }
-      }
-
-      if (state.stripeConfigured) {
-        const stripeRes = await fetch('/api/create-checkout-session', {
+      if (paymentMethod === 'ziina') {
+        const piRes = await fetch('/api/create-payment-intent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-session-id': state.sessionId, ...getAuthHeaders() },
           body: JSON.stringify(orderData)
         });
-        const stripeResult = await stripeRes.json();
-        if (stripeRes.ok && stripeResult.url) {
-          state.cart = [];
-          saveCart();
-          updateCartCount();
+        const piResult = await piRes.json();
+        if (piRes.ok && piResult.url) {
+          localStorage.setItem('pending_order_id', piResult.order_id);
+          // Do NOT clear cart yet (cleared on success redirect)
           checkoutForm.reset();
-          window.location.href = stripeResult.url;
+          window.location.href = piResult.url;
+          return;
+        } else {
+          alert(piResult.error || 'Failed to create payment intent. Please try COD or try again.');
+          submitBtn.textContent = originalText;
+          submitBtn.disabled = false;
           return;
         }
       }
 
-      // Direct order placement
+      // Direct order placement (COD)
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-session-id': state.sessionId, ...getAuthHeaders() },
@@ -1135,6 +1208,7 @@ document.addEventListener('DOMContentLoaded', () => {
       saveCart();
       updateCartCount();
       checkoutForm.reset();
+      state.checkoutId = null;
 
       renderOrderConfirmation(result.order_id);
       navigateTo('order-confirmed');
@@ -1146,7 +1220,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Render Confirmation Details (accepts order id or Stripe session id)
+  // Render Confirmation Details (accepts order id or payment intent id)
   async function renderOrderConfirmation(orderId) {
     const container = document.getElementById('order-details');
     container.innerHTML = '<div class="cart-empty"><p>Loading order details...</p></div>';
@@ -1883,13 +1957,14 @@ document.addEventListener('DOMContentLoaded', () => {
       container.innerHTML = '<div class="cart-empty"><p>No orders yet.</p></div>';
       return;
     }
-    container.innerHTML = '<div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>ID</th><th>Customer</th><th>Subtotal</th><th>Printing</th><th>Shipping</th><th>Total</th><th>Status</th><th>Payment</th><th>Date</th></tr></thead><tbody>' +
+    container.innerHTML = '<div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>ID</th><th>Customer</th><th>Subtotal</th><th>Printing</th><th>Shipping</th><th>Total</th><th>Status</th><th>Method</th><th>Payment Status</th><th>Date</th></tr></thead><tbody>' +
       orders.map(o => '<tr><td>#' + o.id + '</td><td>' + (o.customer_name || 'Guest') + '</td>' +
       '<td>€' + Number(o.subtotal || 0).toFixed(2) + '</td>' +
       '<td>' + (Number(o.name_printing_fee || 0) > 0 ? '€' + Number(o.name_printing_fee).toFixed(2) : '—') + '</td>' +
       '<td>€' + Number(o.delivery_fee || 5).toFixed(2) + '</td>' +
       '<td style="font-weight:700;color:var(--accent-gold);">€' + Number(o.total).toFixed(2) + '</td>' +
       '<td style="color:var(--green);text-transform:uppercase;">' + o.status + '</td>' +
+      '<td style="text-transform:uppercase;">' + (o.payment_method || '—').toUpperCase() + '</td>' +
       '<td style="text-transform:uppercase;">' + o.payment_status + '</td>' +
       '<td>' + new Date(o.created_at).toLocaleDateString() + '</td></tr>').join('') +
       '</tbody></table></div>';
@@ -2110,19 +2185,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Check if user is already logged in
   checkAuth().then(() => {
-    // Handle Stripe Checkout return (full page redirect)
+    // Handle Ziina Checkout return (full page redirect)
     const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get('session_id');
-    const checkoutCancel = urlParams.get('checkout');
+    const checkoutStatus = urlParams.get('checkout');
+    const orderId = urlParams.get('order_id');
 
-    if (sessionId) {
+    if (checkoutStatus === 'success' && orderId) {
+      state.cart = [];
+      saveCart();
+      updateCartCount();
+      state.checkoutId = null;
+
       navigateTo('order-confirmed');
-      renderOrderConfirmation(sessionId);
+      renderOrderConfirmation(orderId);
       window.history.replaceState({}, '', window.location.pathname);
-    } else if (checkoutCancel === 'cancel') {
+    } else if (checkoutStatus === 'cancel' || checkoutStatus === 'failed') {
       const msg = document.createElement('div');
       msg.style.cssText = 'position:fixed;top:100px;left:50%;transform:translateX(-50%);background:#ef4444;color:white;padding:16px 32px;border-radius:12px;z-index:9999;font-weight:600;letter-spacing:0.5px;';
-      msg.textContent = 'Payment cancelled. Your cart items are still saved.';
+      msg.textContent = checkoutStatus === 'cancel'
+        ? 'Payment cancelled. Your cart items are still saved.'
+        : 'Payment failed. Please try again.';
       document.body.appendChild(msg);
       setTimeout(() => msg.remove(), 4000);
       window.history.replaceState({}, '', window.location.pathname);
