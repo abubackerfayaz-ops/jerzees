@@ -247,7 +247,7 @@ const authLimiter = rateLimit({
 });
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 120,
+  max: 300,
   message: { error: 'Too many requests. Slow down.' },
   standardHeaders: true,
   legacyHeaders: false,

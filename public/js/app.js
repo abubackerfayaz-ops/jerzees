@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <span class="price-block">
         <span class="price-original">${formatPrice(origEUR)}</span>
         <span class="price">${formatPrice(saleMin)} – ${formatPrice(saleMax)}</span>
-        <span class="discount-badge">-${discountPct}%</span>
+        <span class="discount-badge">Save ${discountPct}%</span>
       </span>
     `;
   }

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Black+Han+Sans&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Barlow:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Black+Han+Sans&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Barlow:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Oswald:wght@300;400;500;600;700&display=swap');
 
 /* ─── Design Tokens ─── */
 :root {
@@ -26,6 +26,8 @@
   --font-display: 'Barlow Condensed', sans-serif;
   --font-body: 'Barlow', sans-serif;
   --font-drip: 'Black Han Sans', 'Bebas Neue', sans-serif;
+  --font-price: 'Orbitron', 'Barlow Condensed', sans-serif;
+  --font-price-alt: 'Oswald', 'Barlow Condensed', sans-serif;
   --transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
   --transition-slow: all 0.6s cubic-bezier(0.16,1,0.3,1);
   --spring: cubic-bezier(0.175,0.885,0.32,1.275);
@@ -1101,17 +1103,57 @@ nav a.active { color: var(--white); }
 .jersey-card .info .card-footer {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-top: auto;
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
+.jersey-card .info .price-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+.jersey-card .info .price-original {
+  display: inline-block;
+  font-family: var(--font-price);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #888888;
+  text-decoration: line-through;
+  text-decoration-color: #ff4444;
+  text-decoration-thickness: 2px;
+  letter-spacing: 1px;
+  opacity: 0.8;
+}
 .jersey-card .info .price {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 900;
-  color: var(--white);
+  display: inline-block;
+  font-family: var(--font-price);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--green);
   letter-spacing: 0.5px;
+  text-shadow: 0 0 12px rgba(179, 240, 0, 0.3);
+}
+.jersey-card .info .discount-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #ff4444, #cc0000);
+  color: #fff;
+  font-family: var(--font-price);
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  width: fit-content;
+  box-shadow: 0 2px 8px rgba(255, 68, 68, 0.4);
+  animation: badge-pulse 2.5s ease-in-out infinite;
+}
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 2px 8px rgba(255, 68, 68, 0.4); }
+  50% { box-shadow: 0 4px 16px rgba(255, 68, 68, 0.75); }
 }
 .jersey-card .info .view-details-btn {
   font-family: var(--font-display);
@@ -1451,11 +1493,12 @@ nav a.active { color: var(--white); }
   color: var(--gray);
 }
 .detail-price {
-  font-family: var(--font-display);
-  font-size: 2.5rem;
-  font-weight: 900;
-  color: var(--white);
-  letter-spacing: -1px;
+  font-family: var(--font-price);
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--green);
+  letter-spacing: 1px;
+  text-shadow: 0 0 20px rgba(179, 240, 0, 0.25);
 }
 
 /* ─── Cart ─── */
@@ -2412,5 +2455,50 @@ footer::before {
   border-color: var(--green);
   color: var(--green);
   box-shadow: 0 0 15px rgba(179, 240, 0, 0.1);
+}
+
+/* ─── Checkout Payment Method Selector ─── */
+.payment-methods-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+@media (max-width: 600px) {
+  .payment-methods-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.payment-method-card {
+  display: block;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.payment-method-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
+}
+.payment-method-card.active {
+  border-color: var(--green);
+  background: rgba(179, 240, 0, 0.04);
+  box-shadow: 0 0 15px rgba(179, 240, 0, 0.08);
+}
+.payment-card-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--white);
+  margin-bottom: 4px;
+}
+.payment-card-desc {
+  font-size: 0.78rem;
+  color: var(--gray);
+  line-height: 1.3;
 }
 
