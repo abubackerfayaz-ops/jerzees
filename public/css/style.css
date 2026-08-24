@@ -677,6 +677,67 @@ nav a.active { color: var(--white); }
   100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(179,240,0,0); }
 }
 
+/* Prevent accidental horizontal overflow on small screens */
+html, body { overflow-x: hidden; }
+* { box-sizing: border-box; }
+
+/* ─── Mobile refinements (do not affect desktop) ─── */
+@media (max-width: 768px) {
+  /* Header: keep logo + hamburger + icons from overflowing on small phones */
+  .header-inner { gap: 8px; }
+  .nav-icons { gap: 8px; flex-wrap: nowrap; }
+  .region-selector-container { padding: 5px 8px; gap: 4px; flex-shrink: 1; min-width: 0; }
+  .header-region-select { font-size: 0.68rem; max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
+  .nav-icon, .cart-btn { width: 36px; height: 36px; flex-shrink: 0; }
+  .nav-icon svg, .cart-btn svg { width: 18px; height: 18px; }
+
+  /* User dropdown must not clip off the left edge on mobile */
+  .user-dropdown { right: 12px; left: 12px; min-width: 0; width: auto; }
+
+  /* Search overlay input needs room for text on narrow screens (buttons stay put) */
+  #search-input { padding: 18px 140px 18px 20px; font-size: 1rem; }
+
+  /* Auth modal should not touch screen edges */
+  .overlay-modal-content { width: auto; max-width: calc(100% - 32px); margin: 16px; padding: 28px 22px; }
+
+  /* Section header stacks instead of forcing a cramped row */
+  .section-header { flex-direction: column; align-items: flex-start; gap: 14px; margin-bottom: 32px; padding-bottom: 18px; }
+  .section-header .view-all-link { align-self: flex-start; }
+
+  /* Cart item rows stay readable on phones */
+  .cart-item { gap: 14px; flex-wrap: wrap; }
+  .cart-item-image { width: 64px; height: 64px; flex-shrink: 0; }
+  .cart-item-info { min-width: 0; flex: 1 1 140px; }
+  .cart-item-price-qty { gap: 12px; width: 100%; justify-content: space-between; margin-top: 4px; }
+}
+
+@media (max-width: 480px) {
+  .hero-cta { width: 100%; }
+  .btn-browse, .btn-secondary-pill { justify-content: center; }
+
+  /* Keep header from overflowing: drop the non-essential audio toggle, tighten gaps */
+  .audio-toggle { display: none; }
+  .nav-icons { gap: 6px; }
+
+  .region-selector-container { padding: 4px 6px; }
+  .header-region-select { max-width: 74px; font-size: 0.64rem; }
+
+  #search-input { padding: 16px 140px 16px 16px; }
+}
+
+@media (max-width: 380px) {
+  .header-inner { gap: 4px; }
+  .nav-icons { gap: 4px; }
+  .logo-image { height: 36px; }
+  .region-selector-container { padding: 3px 5px; gap: 3px; }
+  .header-region-select { max-width: 58px; font-size: 0.6rem; }
+  .nav-icon, .cart-btn { width: 32px; height: 32px; }
+  .nav-icon svg, .cart-btn svg { width: 16px; height: 16px; }
+  .jersey-grid, .teams-grid, .stats-grid, .pricing-grid { gap: 8px; }
+  .btn-browse { padding: 14px 24px; font-size: 0.85rem; }
+  .btn-secondary-pill { padding: 13px 20px; font-size: 0.82rem; }
+}
+
 /* ─── Hero Heading & Luxury Typography ─── */
 .hero-heading {
   font-family: var(--font-hero);
@@ -2376,10 +2437,10 @@ footer::before {
 }
 
 @media (max-width: 480px) {
-  .jersey-grid { grid-template-columns: 1fr; gap: 16px; }
-  .teams-grid { grid-template-columns: 1fr; }
+  .jersey-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .teams-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .hero-heading { font-size: clamp(34px, 11vw, 52px); }
-  .stats-grid { grid-template-columns: 1fr; }
 }
 
 /* ─── Auth Modal Overlay ─── */
