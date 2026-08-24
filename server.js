@@ -3,6 +3,7 @@ require('dotenv').config({ path: __dirname + '/.env' });
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const xss = require('xss');
 const fs = require('fs');
@@ -99,6 +100,9 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   contentSecurityPolicy: false,
 }));
+
+// Gzip/Brotli compression — cuts bandwidth ~70% for JSON/CSS/JS
+app.use(compression({ level: 6, threshold: 512 }));
 
 // Ziina webhook must receive raw body (before any JSON parsing)
 app.post('/api/ziina-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -260,12 +264,19 @@ app.use('/api/auth/register', authLimiter);
 app.get('/ping', (req, res) => res.status(200).send('ok'));
 
 app.use(express.static(path.join(__dirname, 'public'), {
-  etag: false,
-  lastModified: false,
-  setHeaders: (res) => {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
+  etag: true,
+  lastModified: true,
+  maxAge: '1y',
+  setHeaders: (res, filePath) => {
+    // HTML never cached (so new deploys show immediately); hashed/versioned assets cached 1 year
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    } else {
+      // css/js/images/fonts — immutable for 1 year (use ?v= query bust on deploy)
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
   }
 }));
 
