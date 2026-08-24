@@ -1660,6 +1660,22 @@ document.addEventListener('DOMContentLoaded', () => {
     scrollFadeObserver.observe(el);
   });
 
+  // ─── HAMBURGER MENU ───────────────────────────────────────────────────────
+  const hamburger = document.getElementById('hamburger-btn');
+  const mainNav = document.getElementById('main-nav');
+  if (hamburger && mainNav) {
+    hamburger.addEventListener('click', () => {
+      hamburger.classList.toggle('active');
+      mainNav.classList.toggle('active');
+    });
+    mainNav.querySelectorAll('a').forEach(a => {
+      a.addEventListener('click', () => {
+        hamburger.classList.remove('active');
+        mainNav.classList.remove('active');
+      });
+    });
+  }
+
   // ─── AUTH UI WIRING ─────────────────────────────────────────────────────
 
   // Account icon click → open modal or dropdown
