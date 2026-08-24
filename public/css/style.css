@@ -436,11 +436,13 @@ header.scrolled {
   width: auto;
   object-fit: contain;
   transition: var(--transition);
-  filter: drop-shadow(0 0 10px rgba(179, 240, 0, 0.18));
+  mix-blend-mode: screen;
+  opacity: 0.75;
+  filter: grayscale(0.2) brightness(0.85);
 }
 .logo-img:hover .logo-image {
-  opacity: 0.9;
-  filter: drop-shadow(0 0 18px rgba(179, 240, 0, 0.45));
+  opacity: 1;
+  filter: grayscale(0) brightness(1) drop-shadow(0 0 12px rgba(179, 240, 0, 0.3));
   transform: scale(1.05);
 }
 .logo span { display: none; }
@@ -805,21 +807,23 @@ nav a.active { color: var(--white); }
 
 .hero-active { text-align: right; flex-shrink: 0; }
 .hero-active .label {
-  font-family: var(--font-display);
-  font-size: 0.72rem;
+  font-family: var(--font-price);
+  font-size: 0.65rem;
   font-weight: 700;
-  letter-spacing: 2px;
+  letter-spacing: 3px;
   text-transform: uppercase;
   color: var(--green);
   margin-bottom: 4px;
+  text-shadow: 0 0 8px rgba(179, 240, 0, 0.25);
 }
 .hero-active .value {
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: 1px;
+  font-family: var(--font-price);
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--white);
+  text-shadow: 0 0 16px rgba(255, 255, 255, 0.1);
 }
 
 /* ─── Hero Showcase Card (Right Column) ─── */
