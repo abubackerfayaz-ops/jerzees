@@ -189,6 +189,8 @@ async function initialize() {
         shipping_method TEXT,
         tracking_number TEXT,
         stripe_session_id TEXT,
+        paid_at TIMESTAMP,
+        checkout_id TEXT UNIQUE,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );
@@ -291,6 +293,8 @@ async function initialize() {
     try { await pgPool.query('ALTER TABLE jerseys ADD COLUMN num_reviews INTEGER DEFAULT 0'); } catch(e){}
     try { await pgPool.query('ALTER TABLE orders ADD COLUMN tax NUMERIC DEFAULT 0'); } catch(e){}
     try { await pgPool.query('ALTER TABLE orders ADD COLUMN shipping_cost NUMERIC DEFAULT 0'); } catch(e){}
+    try { await pgPool.query('ALTER TABLE orders ADD COLUMN paid_at TIMESTAMP'); } catch(e){}
+    try { await pgPool.query('ALTER TABLE orders ADD COLUMN checkout_id TEXT UNIQUE'); } catch(e){}
 
     // Ensure admin exists in PG
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@kickoff.com';
@@ -401,6 +405,8 @@ async function initialize() {
       shipping_method TEXT,
       tracking_number TEXT,
       stripe_session_id TEXT,
+      paid_at TEXT,
+      checkout_id TEXT UNIQUE,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     )
@@ -516,6 +522,8 @@ async function initialize() {
   try { d.exec('ALTER TABLE jerseys ADD COLUMN num_reviews INTEGER DEFAULT 0'); } catch(e){}
   try { d.exec('ALTER TABLE orders ADD COLUMN tax REAL DEFAULT 0'); } catch(e){}
   try { d.exec('ALTER TABLE orders ADD COLUMN shipping_cost REAL DEFAULT 0'); } catch(e){}
+  try { d.exec('ALTER TABLE orders ADD COLUMN paid_at TEXT'); } catch(e){}
+  try { d.exec('ALTER TABLE orders ADD COLUMN checkout_id TEXT UNIQUE'); } catch(e){}
 
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@kickoff.com';
   const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
