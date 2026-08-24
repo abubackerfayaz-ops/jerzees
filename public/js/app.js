@@ -1136,12 +1136,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Handle Place Order submit form
-  checkoutForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const submitBtn = checkoutForm.querySelector('button[type="submit"]');
-    const originalText = submitBtn.textContent;
-    submitBtn.textContent = 'Processing Order...';
-    submitBtn.disabled = true;
+  const checkoutForm = document.getElementById('checkout-form');
+  if (checkoutForm) {
+    checkoutForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const submitBtn = checkoutForm.querySelector('button[type="submit"]');
+      const originalText = submitBtn ? submitBtn.textContent : 'Place Order';
+      if (submitBtn) {
+        submitBtn.textContent = 'Processing Order...';
+        submitBtn.disabled = true;
+      }
 
     const formData = new FormData(checkoutForm);
     const selectedCountry = formData.get('country') || state.country || 'United Kingdom';
@@ -1219,6 +1223,7 @@ document.addEventListener('DOMContentLoaded', () => {
       submitBtn.disabled = false;
     }
   });
+}
 
   // Render Confirmation Details (accepts order id or payment intent id)
   async function renderOrderConfirmation(orderId) {
@@ -1620,10 +1625,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Magnetic Cursor Elements (Pull interactive controls toward cursor slightly)
   const magneticItems = document.querySelectorAll('.nav-icon, .cart-btn, .btn-browse, .logo');
-  const coordTracker = document.getElementById('system-coord-tracker');
 
   document.addEventListener('mousemove', (e) => {
-    // 1. Magnetic Pull
     magneticItems.forEach(el => {
       const rect = el.getBoundingClientRect();
       const elX = rect.left + rect.width / 2;
@@ -1638,13 +1641,6 @@ document.addEventListener('DOMContentLoaded', () => {
         el.style.transform = '';
       }
     });
-
-    // 2. Coordinate Tracking readouts
-    if (coordTracker) {
-      const pctX = (e.clientX / window.innerWidth * 180 - 90).toFixed(4);
-      const pctY = (e.clientY / window.innerHeight * 360 - 180).toFixed(4);
-      coordTracker.textContent = `SYS_REF: [${pctX}° N, ${pctY}° W] // ARC_JRZEES_V3`;
-    }
   });
 
   const scrollFadeObserver = new IntersectionObserver((entries) => {
