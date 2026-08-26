@@ -866,7 +866,7 @@ html, body { overflow-x: hidden; }
   box-shadow: 0 6px 20px rgba(179, 240, 0, 0.2);
 }
 
-.hero-active { text-align: right; flex-shrink: 0; }
+.hero-active { text-align: center; flex-shrink: 0; }
 .hero-active .label {
   font-family: var(--font-price);
   font-size: 0.65rem;
@@ -2417,10 +2417,10 @@ footer::before {
   .hero { padding: 40px 0 50px; min-height: auto; }
   .hero-heading { font-size: clamp(38px, 12vw, 68px); letter-spacing: -1px; }
   .hero-subtitle { font-size: 0.95rem; }
-  .hero-bottom { flex-direction: column; align-items: flex-start; gap: 24px; }
+  .hero-bottom { flex-direction: column; align-items: center; gap: 24px; }
   .hero-cta { width: 100%; flex-direction: column; }
   .btn-browse, .btn-secondary-pill { width: 100%; justify-content: center; text-align: center; }
-  .hero-active { text-align: left; }
+  .hero-active { text-align: center; }
 
   .hero-showcase-container { display: none; }
 
