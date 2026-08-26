@@ -760,10 +760,6 @@ document.addEventListener('DOMContentLoaded', () => {
               <span class="label">Jersey Price:</span>
               <span class="detail-price" id="detail-total-price">${formatPrice(getCombinedPrice())}</span>
             </div>
-            <div style="margin-top:8px; font-size:0.82rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:3px;">
-              ${!jersey.has_name_behind ? `<span>✏️ + ${formatPrice(FEES.namePrinting)} custom name printing (if added)</span>` : ''}
-              <span>🚚 + ${formatPrice(FEES.delivery)} shipping (flat rate)</span>
-            </div>
           </div>
 
           <button class="btn btn-primary btn-block" id="add-to-cart-btn">Add to Cart Bag</button>
