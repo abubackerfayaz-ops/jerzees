@@ -575,7 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
       container.innerHTML = '<div class="cart-empty"><p>Couldn\'t load teams right now. Please try again.</p></div>';
       return;
     }
-    const teams = Array.isArray(data) ? data : [];
+    const teams = Array.isArray(data) ? data.filter(t => Number(t.jersey_count) > 0) : [];
     if (!teams.length) {
       container.innerHTML = '<div class="cart-empty"><p>No teams available.</p></div>';
       return;
