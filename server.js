@@ -268,8 +268,8 @@ app.use(express.static(path.join(__dirname, 'public'), {
   lastModified: true,
   maxAge: '1y',
   setHeaders: (res, filePath) => {
-    // HTML never cached (so new deploys show immediately); hashed/versioned assets cached 1 year
-    if (filePath.endsWith('.html')) {
+    // HTML and service worker never cached long (so new deploys + sw updates show immediately)
+    if (filePath.endsWith('.html') || filePath.endsWith('sw.js')) {
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
