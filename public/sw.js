@@ -1,7 +1,7 @@
-const CACHE_NAME = 'jrzees-v2.0';
+const CACHE_NAME = 'jrzees-v2.1';
 const STATIC_ASSETS = [
   '/',
-  '/css/style.css?v=2.0.0',
+  '/css/style.css?v=2.0.1',
   '/js/app.js?v=1.0.8'
 ];
 

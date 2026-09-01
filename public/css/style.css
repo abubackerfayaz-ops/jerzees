@@ -3139,14 +3139,14 @@ footer::before {
 
   /* ── Hero Section ── */
   .hero {
-    padding: 28px 0 36px !important;
+    padding: 22px 0 30px !important;
     min-height: auto !important;
     text-align: center !important;
     overflow: hidden !important;
   }
   .hero-split {
     grid-template-columns: 1fr !important;
-    gap: 20px !important;
+    gap: 16px !important;
     max-width: 100% !important;
     width: 100% !important;
   }
@@ -3163,14 +3163,14 @@ footer::before {
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    gap: 7px !important;
-    margin-bottom: 18px !important;
+    gap: 6px !important;
+    margin-bottom: 14px !important;
     width: 100% !important;
   }
   .hero-badge {
-    padding: 5px 14px !important;
-    font-size: 0.65rem !important;
-    letter-spacing: 1px !important;
+    padding: 4px 12px !important;
+    font-size: 0.62rem !important;
+    letter-spacing: 0.8px !important;
     width: auto !important;
     max-width: 90% !important;
     text-align: center !important;
@@ -3178,11 +3178,11 @@ footer::before {
   }
   .hero-heading {
     font-family: var(--font-hero) !important;
-    font-size: clamp(24px, 7.5vw, 38px) !important;
-    line-height: 1.06 !important;
+    font-size: clamp(20px, 5.8vw, 28px) !important;
+    line-height: 1.05 !important;
     letter-spacing: -0.5px !important;
     text-align: center !important;
-    margin-bottom: 16px !important;
+    margin-bottom: 12px !important;
     width: 100% !important;
     max-width: 100% !important;
     word-break: normal !important;
@@ -3195,49 +3195,50 @@ footer::before {
     max-width: 100% !important;
     text-align: center !important;
     word-break: normal !important;
+    letter-spacing: normal !important;
   }
   .hero-subtitle {
-    font-size: clamp(0.82rem, 3.2vw, 0.92rem) !important;
-    line-height: 1.55 !important;
-    margin-bottom: 22px !important;
+    font-size: 0.82rem !important;
+    line-height: 1.5 !important;
+    margin-bottom: 18px !important;
     text-align: center !important;
-    max-width: 100% !important;
-    padding: 0 10px !important;
+    max-width: 300px !important;
+    padding: 0 8px !important;
     color: var(--gray-light) !important;
   }
   .hero-bottom {
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    gap: 16px !important;
+    gap: 14px !important;
     width: 100% !important;
   }
   .hero-cta {
     display: flex !important;
     flex-direction: column !important;
-    gap: 10px !important;
+    gap: 8px !important;
     width: 100% !important;
-    max-width: 320px !important;
+    max-width: 280px !important;
     margin: 0 auto !important;
   }
   .btn-browse, .btn-secondary-pill {
     width: 100% !important;
     justify-content: center !important;
     text-align: center !important;
-    padding: 14px 20px !important;
-    font-size: 0.85rem !important;
+    padding: 12px 18px !important;
+    font-size: 0.82rem !important;
     box-sizing: border-box !important;
   }
   .hero-active {
     text-align: center !important;
-    margin-top: 6px !important;
+    margin-top: 4px !important;
   }
   .hero-active .label {
-    font-size: 0.65rem !important;
-    letter-spacing: 1px !important;
+    font-size: 0.62rem !important;
+    letter-spacing: 0.8px !important;
   }
   .hero-active .value {
-    font-size: 1.15rem !important;
+    font-size: 1.05rem !important;
   }
   .hero-showcase-container {
     display: none !important;
@@ -3248,21 +3249,21 @@ footer::before {
 
   /* ── Section & Grid Layouts ── */
   .section {
-    padding: 44px 0 !important;
+    padding: 38px 0 !important;
   }
   .section-header {
     flex-direction: column !important;
     align-items: flex-start !important;
-    gap: 12px !important;
-    margin-bottom: 24px !important;
-    padding-bottom: 14px !important;
+    gap: 10px !important;
+    margin-bottom: 20px !important;
+    padding-bottom: 12px !important;
   }
   .section-header .view-all-link,
   .section-header .section-link {
     align-self: flex-start !important;
   }
   .section-title {
-    font-size: clamp(1.4rem, 6vw, 2.2rem) !important;
+    font-size: clamp(1.3rem, 5.5vw, 1.9rem) !important;
   }
 
   /* Products Grid */
@@ -3632,12 +3633,13 @@ footer::before {
 /* ─── Compact Phones (≤ 480px) ─── */
 @media (max-width: 480px) {
   .hero-heading {
-    font-size: clamp(20px, 7vw, 30px) !important;
-    letter-spacing: -0.3px !important;
+    font-size: clamp(16px, 5vw, 22px) !important;
+    letter-spacing: -0.2px !important;
   }
   .hero-subtitle {
-    font-size: 0.82rem !important;
-    line-height: 1.5 !important;
+    font-size: 0.76rem !important;
+    line-height: 1.45 !important;
+    max-width: 270px !important;
   }
   .header-inner {
     gap: 4px !important;
@@ -3673,19 +3675,19 @@ footer::before {
 /* ─── Smallest Screens (≤ 380px) ─── */
 @media (max-width: 380px) {
   .hero-heading {
-    font-size: clamp(18px, 6.5vw, 25px) !important;
+    font-size: clamp(15px, 4.8vw, 19px) !important;
     letter-spacing: -0.2px !important;
   }
   .hero-cta {
     max-width: 100% !important;
   }
   .btn-browse {
-    padding: 12px 16px !important;
-    font-size: 0.8rem !important;
+    padding: 11px 15px !important;
+    font-size: 0.78rem !important;
   }
   .btn-secondary-pill {
-    padding: 11px 14px !important;
-    font-size: 0.78rem !important;
+    padding: 10px 13px !important;
+    font-size: 0.75rem !important;
   }
   .jersey-grid, .teams-grid {
     gap: 6px !important;
