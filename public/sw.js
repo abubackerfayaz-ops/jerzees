@@ -1,8 +1,8 @@
-const CACHE_NAME = 'jrzees-v1.1';
+const CACHE_NAME = 'jrzees-v2.0';
 const STATIC_ASSETS = [
   '/',
-  '/css/style.css',
-  '/js/app.js'
+  '/css/style.css?v=2.0.0',
+  '/js/app.js?v=1.0.8'
 ];
 
 // Install — skip waiting, take control immediately

@@ -429,6 +429,12 @@ document.addEventListener('DOMContentLoaded', () => {
       renderAdminPage();
     }
 
+    // Hide sticky mobile bar when not on detail page
+    const stickyCta = document.getElementById('mobile-sticky-cta');
+    if (stickyCta && page !== 'detail') {
+      stickyCta.style.display = 'none';
+    }
+
     updateCartCount();
   }
 
@@ -810,9 +816,27 @@ document.addEventListener('DOMContentLoaded', () => {
       if (priceText) {
         priceText.textContent = formatPrice(getCombinedPrice());
       }
+      // Sync sticky mobile bar price
+      const stickyPrice = document.getElementById('mobile-sticky-price');
+      if (stickyPrice) stickyPrice.textContent = formatPrice(getCombinedPrice());
     }
 
     renderDetailContent();
+
+    // ─── Sticky mobile Add to Bag bar ───
+    const stickyCta = document.getElementById('mobile-sticky-cta');
+    const stickyBtn = document.getElementById('mobile-sticky-btn');
+    const stickyPrice = document.getElementById('mobile-sticky-price');
+    if (stickyCta && stickyBtn && stickyPrice) {
+      // Only show on mobile viewports
+      if (window.innerWidth <= 768) {
+        stickyCta.style.display = 'flex';
+        stickyPrice.textContent = formatPrice(getCombinedPrice());
+        stickyBtn.onclick = () => {
+          addToCart(jersey, selectedVersion, selectedSize, printNameText, priceTiers[selectedVersion]);
+        };
+      }
+    }
   }
 
   // Zoom Modal Handler
@@ -1657,13 +1681,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const mainNav = document.getElementById('main-nav');
   if (hamburger && mainNav) {
     hamburger.addEventListener('click', () => {
-      hamburger.classList.toggle('active');
-      mainNav.classList.toggle('active');
+      const isActive = hamburger.classList.toggle('active');
+      mainNav.classList.toggle('active', isActive);
+      document.body.style.overflow = isActive ? 'hidden' : '';
     });
     mainNav.querySelectorAll('a').forEach(a => {
       a.addEventListener('click', () => {
         hamburger.classList.remove('active');
         mainNav.classList.remove('active');
+        document.body.style.overflow = '';
       });
     });
   }
