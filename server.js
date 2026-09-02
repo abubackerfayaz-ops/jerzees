@@ -1562,7 +1562,7 @@ app.get('/api/img-proxy', (req, res) => {
 // Version endpoint to easily verify live deployment
 app.get('/api/version', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache');
-  res.json({ version: '3.6.0', deployedAt: new Date().toISOString() });
+  res.json({ version: '3.7.0', deployedAt: new Date().toISOString() });
 });
 
 // Serve index.html for any unmatched non-API route (SPA client-side routing)
