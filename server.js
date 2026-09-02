@@ -1355,6 +1355,43 @@ app.delete('/api/admin/jerseys/:id', adminRequired, async (req, res) => {
   }
 });
 
+// ─── ADMIN: REORDER JERSEY IMAGES ───────────────────────────────────────────
+app.get('/api/admin/jerseys/:id/images', adminRequired, async (req, res) => {
+  try {
+    const images = await db.all(
+      'SELECT * FROM jersey_images WHERE jersey_id = $1 ORDER BY sort_order',
+      [req.params.id]
+    );
+    res.json(images);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.put('/api/admin/jerseys/:id/images/reorder', adminRequired, async (req, res) => {
+  try {
+    const { imageIds } = req.body;
+    if (!Array.isArray(imageIds) || imageIds.length === 0) {
+      return res.status(400).json({ error: 'imageIds array required' });
+    }
+    for (let i = 0; i < imageIds.length; i++) {
+      await db.query(
+        'UPDATE jersey_images SET sort_order = $1 WHERE id = $2 AND jersey_id = $3',
+        [i, imageIds[i], req.params.id]
+      );
+    }
+    const images = await db.all(
+      'SELECT * FROM jersey_images WHERE jersey_id = $1 ORDER BY sort_order',
+      [req.params.id]
+    );
+    res.json({ success: true, images });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 app.get('/api/admin/teams', adminRequired, async (req, res) => {
   try {
     const teams = await db.all('SELECT * FROM teams ORDER BY name ASC');

@@ -457,18 +457,18 @@ document.addEventListener('DOMContentLoaded', () => {
       state.activeCategory = category;
 
       if (category === 'all') {
-        if (titleEl) titleEl.innerHTML = 'Shop <span>All Kits</span>';
+        if (titleEl) titleEl.innerHTML = 'Archive <span class="fancy-italic">Collection</span>';
       } else if (category === 'retro') {
-        if (titleEl) titleEl.innerHTML = 'Classic <span>Retro</span>';
+        if (titleEl) titleEl.innerHTML = 'Historic <span class="fancy-italic">Retro Archive</span>';
       } else if (category === 'new' || category === 'new-drops' || category === 'new_drops') {
-        if (titleEl) titleEl.innerHTML = 'New <span>Kits &amp; Drops</span>';
+        if (titleEl) titleEl.innerHTML = 'Season 25/26 <span class="fancy-italic">New Drops</span>';
       } else if (category === 'training') {
-        if (titleEl) titleEl.innerHTML = 'Training <span>Kits</span>';
+        if (titleEl) titleEl.innerHTML = 'Performance <span class="fancy-italic">Training Kits</span>';
       } else if (category === 'tracksuit') {
-        if (titleEl) titleEl.innerHTML = 'Full <span>Tracksuits</span>';
+        if (titleEl) titleEl.innerHTML = 'Heritage <span class="fancy-italic">Tracksuits</span>';
       } else {
         const catCapitalized = category.charAt(0).toUpperCase() + category.slice(1);
-        if (titleEl) titleEl.innerHTML = `${catCapitalized} <span>Kits</span>`;
+        if (titleEl) titleEl.innerHTML = `${catCapitalized} <span class="fancy-italic">Editions</span>`;
       }
 
       document.querySelectorAll('#category-filter-bar .cat-filter-btn').forEach(b => {
@@ -498,7 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!jerseys.length) {
       jerseys = await apiFetch('/api/jerseys');
       if (!Array.isArray(jerseys)) jerseys = [];
-      if (titleEl) titleEl.innerHTML = 'Shop <span>All Kits</span>';
+      if (titleEl) titleEl.innerHTML = 'Archive <span class="fancy-italic">Collection</span>';
       state.activeCategory = 'all';
       document.querySelectorAll('#category-filter-bar .cat-filter-btn').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-category') === 'all');
@@ -507,14 +507,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     container.innerHTML = jerseys.map(jersey => `
       <div class="jersey-card" data-id="${jersey.id}">
-        <div class="card-scanner-glow"></div>
         ${renderJerseyMedia(jersey)}
         <div class="info">
           <h4>${jersey.name}</h4>
           <span class="team-label">${jersey.team_name}</span>
           <div class="card-footer">
             ${renderPriceBlock(jersey, 20, 25)}
-            <span class="view-details-btn">View Options</span>
+            <span class="view-details-btn">View Edition</span>
           </div>
         </div>
       </div>
@@ -547,16 +546,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     container.innerHTML = jerseys.map(jersey => `
       <div class="jersey-card" data-id="${jersey.id}">
-        <!-- Laser Scanner -->
-        <div class="card-scanner-glow"></div>
-        
         ${renderJerseyMedia(jersey)}
         <div class="info">
           <h4>${jersey.name}</h4>
           <span class="team-label">${jersey.team_name}</span>
           <div class="card-footer">
             ${renderPriceBlock(jersey, 20, 25)}
-            <span class="view-details-btn">View Options</span>
+            <span class="view-details-btn">View Edition</span>
           </div>
         </div>
       </div>
@@ -621,20 +617,17 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    headerTitle.textContent = `${jerseys[0].team_name} Collection`;
+    headerTitle.innerHTML = `${jerseys[0].team_name} <span class="fancy-italic">Collection</span>`;
 
     container.innerHTML = jerseys.map(jersey => `
       <div class="jersey-card" data-id="${jersey.id}">
-        <!-- Laser Scanner -->
-        <div class="card-scanner-glow"></div>
-        
         ${renderJerseyMedia(jersey)}
         <div class="info">
           <h4>${jersey.name}</h4>
           <span class="team-label">${jersey.team_name}</span>
           <div class="card-footer">
             ${renderPriceBlock(jersey, jersey.version_fan || 20, jersey.version_retro || 25)}
-            <span class="view-details-btn">View Options</span>
+            <span class="view-details-btn">View Edition</span>
           </div>
         </div>
       </div>
@@ -2121,7 +2114,8 @@ document.addEventListener('DOMContentLoaded', () => {
           '<td>' + (j.season || '-') + '</td>' +
           '<td>' + (j.type || '-') + '</td>' +
           '<td>' + (j.featured ? '★' : '-') + '</td>' +
-          '<td><button class="btn btn-small btn-danger" data-id="' + j.id + '" data-name="' + j.name.replace(/'/g, '\\\'') + '">Delete</button></td>' +
+          '<td><button class="btn btn-small btn-outline admin-images-btn" data-id="' + j.id + '">Images</button> ' +
+          '<button class="btn btn-small btn-danger" data-id="' + j.id + '" data-name="' + j.name.replace(/'/g, '\\\'') + '">Delete</button></td>' +
           '</tr>';
       }).join('');
       tbody.querySelectorAll('.btn-danger').forEach(btn => {
@@ -2132,6 +2126,9 @@ document.addEventListener('DOMContentLoaded', () => {
             loadAdminJerseys();
           } catch (e) { alert('Delete failed'); }
         });
+      });
+      tbody.querySelectorAll('.admin-images-btn').forEach(btn => {
+        btn.addEventListener('click', () => openImageReorderModal(btn.getAttribute('data-id')));
       });
     } catch (e) { tbody.innerHTML = '<tr><td colspan="8">Error loading jerseys.</td></tr>'; }
 
@@ -2222,6 +2219,77 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // ─── IMAGE REORDER MODAL ──────────────────────────────────────────────────
+  let reorderImages = [];
+  let reorderJerseyId = null;
+
+  async function openImageReorderModal(jerseyId) {
+    reorderJerseyId = jerseyId;
+    const overlay = document.getElementById('image-reorder-overlay');
+    const list = document.getElementById('img-reorder-list');
+    overlay.style.display = 'flex';
+    list.innerHTML = '<p style="color:var(--text-2);">Loading images...</p>';
+    try {
+      reorderImages = await apiGet('/api/admin/jerseys/' + jerseyId + '/images');
+      renderReorderList();
+    } catch (e) {
+      list.innerHTML = '<p style="color:var(--danger);">Failed to load images.</p>';
+    }
+  }
+
+  function renderReorderList() {
+    const list = document.getElementById('img-reorder-list');
+    if (!reorderImages.length) {
+      list.innerHTML = '<p style="color:var(--text-2);">No images found.</p>';
+      return;
+    }
+    list.innerHTML = reorderImages.map((img, i) =>
+      '<div class="reorder-card" data-idx="' + i + '" style="position:relative;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">' +
+        '<img src="' + proxyImg(img.image_url) + '" style="width:100%;height:120px;object-fit:cover;display:block;" onerror="this.style.display=\'none\'">' +
+        '<div style="padding:6px;display:flex;justify-content:center;gap:4px;">' +
+          '<button class="btn btn-tiny reorder-up" data-idx="' + i + '"' + (i === 0 ? ' disabled' : '') + ' title="Move up">&#9650;</button>' +
+          '<button class="btn btn-tiny reorder-down" data-idx="' + i + '"' + (i === reorderImages.length - 1 ? ' disabled' : '') + ' title="Move down">&#9660;</button>' +
+          (i === 0 ? '<span style="font-size:10px;color:var(--accent);line-height:26px;margin-left:4px;">FRONT</span>' : '') +
+        '</div>' +
+      '</div>'
+    ).join('');
+    list.querySelectorAll('.reorder-up').forEach(btn => {
+      btn.addEventListener('click', () => moveImage(parseInt(btn.dataset.idx), -1));
+    });
+    list.querySelectorAll('.reorder-down').forEach(btn => {
+      btn.addEventListener('click', () => moveImage(parseInt(btn.dataset.idx), 1));
+    });
+  }
+
+  function moveImage(idx, dir) {
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= reorderImages.length) return;
+    const temp = reorderImages[idx];
+    reorderImages[idx] = reorderImages[newIdx];
+    reorderImages[newIdx] = temp;
+    renderReorderList();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('img-reorder-close').addEventListener('click', () => {
+      document.getElementById('image-reorder-overlay').style.display = 'none';
+    });
+    document.getElementById('image-reorder-overlay').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
+    });
+    document.getElementById('img-reorder-save').addEventListener('click', async () => {
+      try {
+        await apiPost('/api/admin/jerseys/' + reorderJerseyId + '/images/reorder', {
+          imageIds: reorderImages.map(img => img.id)
+        }, 'PUT');
+        document.getElementById('image-reorder-overlay').style.display = 'none';
+        loadAdminJerseys();
+      } catch (e) {
+        alert('Failed to save order.');
+      }
+    });
+  });
 
   async function initCurrencySystem() {
     try {

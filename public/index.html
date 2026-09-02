@@ -3,37 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JRZEES | Premium Football Kits &amp; Archive Jerseys</title>
-  <meta name="description" content="Premium retro and classic football kits. Verified authentic. Museum-grade archive jerseys from the world's greatest clubs.">
-  <link rel="stylesheet" href="/css/style.css?v=2.0.3">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+  <title>JRZEES | Haute Heritage &amp; Museum Football Kits</title>
+  <meta name="description" content="The premier luxury archive for authentic football kits, historic retro jerseys, and bespoke matchwear from the world's greatest clubs.">
+  <link rel="stylesheet" href="/css/style.css?v=2.1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&family=Cinzel:wght@400;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=Italianno&family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,600;1,700;1,800;1,900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-  <!-- Grain texture overlay -->
+  <!-- Subtle velvet grain texture overlay -->
   <div class="grain-overlay" aria-hidden="true"></div>
 
-  <!-- Cursor spotlight -->
+  <!-- Warm ambient spotlight -->
   <div class="cursor-spotlight" id="cursor-spotlight" aria-hidden="true"></div>
 
-  <!-- Interactive Particles Canvas -->
-  <canvas id="particles-canvas" class="particles-bg" aria-hidden="true"></canvas>
-
-  <!-- Fluid Abstract Blurry Backdrops -->
+  <!-- Warm Champagne & Obsidian Fluid Glows -->
   <div class="fluid-blob-container" aria-hidden="true">
     <div class="fluid-blob blob-1"></div>
     <div class="fluid-blob blob-2"></div>
     <div class="fluid-blob blob-3"></div>
   </div>
 
-
-
   <!-- Header -->
   <header id="site-header">
-    <!-- Corner Crosshairs -->
-    <div class="crosshair-ch cx-tl">+</div>
-    <div class="crosshair-ch cx-tr">+</div>
-    
     <div class="header-inner">
       <a href="#" class="logo logo-img" data-page="home">
         <picture>
@@ -48,10 +41,10 @@
 
       <nav id="main-nav">
         <a href="#" data-page="home" class="active">Home</a>
-        <a href="#" data-page="catalog" data-filter="all">Shop</a>
+        <a href="#" data-page="catalog" data-filter="all">Collection</a>
         <a href="#" data-page="catalog" data-filter="new">New Drops</a>
-        <a href="#" data-page="catalog" data-filter="retro">Retro</a>
-        <a href="#" data-page="teams">Collections</a>
+        <a href="#" data-page="catalog" data-filter="retro">Archive Retro</a>
+        <a href="#" data-page="teams">Clubs</a>
         <a href="#" data-page="admin" id="nav-admin-link" style="display:none;">Admin</a>
       </nav>
 
@@ -76,24 +69,17 @@
         </div>
 
         <!-- Search -->
-        <div class="nav-icon" id="nav-search" title="Search">
+        <div class="nav-icon" id="nav-search" title="Search Collection">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </div>
         <!-- Account -->
-        <div class="nav-icon" id="nav-account" title="Account">
+        <div class="nav-icon" id="nav-account" title="Account Profile">
           <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        </div>
-        <!-- Audio Synth Toggle Cues -->
-        <div class="nav-icon audio-toggle" id="audio-toggle-btn" title="Toggle Sound Design">
-          <div class="sound-wave">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
         </div>
         <!-- Cart -->
         <button class="cart-btn" data-page="cart" id="nav-cart-btn">
           <svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+          <span class="cart-btn-label">Bag</span>
           <span id="cart-count">0</span>
         </button>
       </div>
@@ -104,62 +90,45 @@
 
     <!-- ─── Home Page ─── -->
     <div id="page-home">
-      <!-- Layout corners -->
-      <div class="tech-layout-bracket tl-br">[</div>
-      <div class="tech-layout-bracket tr-br">]</div>
-      <div class="tech-layout-bracket bl-br">[</div>
-      <div class="tech-layout-bracket br-br">]</div>
-
       <section class="hero">
-        <!-- Background glows -->
+        <!-- Ambient Warm Glows -->
         <div class="hero-glow" aria-hidden="true"></div>
         <div class="hero-glow-right" aria-hidden="true"></div>
-
-        <!-- Diagonal Stripe Side Accents -->
-        <div class="stripe-side stripe-left" aria-hidden="true"></div>
-        <div class="stripe-side stripe-right" aria-hidden="true"></div>
 
         <div class="hero-split">
           <div class="hero-content-left">
             <div class="hero-badges fade-up">
-              <div class="hero-badge"><span class="dot pulse"></span>VERIFIED AUTHENTIC</div>
-              <div class="hero-badge"><span class="dot"></span>MUSEUM GRADE ARCHIVE</div>
-              <div class="hero-badge highlight"><span class="dot"></span>SEASON 25/26 DROPS</div>
+              <div class="hero-badge"><span class="badge-icon">⚜</span> VERIFIED AUTHENTIC</div>
+              <div class="hero-badge highlight"><span class="badge-icon">✦</span> MUSEUM GRADE ARCHIVE</div>
+              <div class="hero-badge"><span class="badge-icon">✧</span> SEASON 25/26 DROPS</div>
             </div>
 
             <h1 class="hero-heading fade-up" style="transition-delay:0.1s">
-              <span class="line-white">AUTHENTIC</span>
-              <span class="line-green">IDENTITY.</span>
+              <span class="line-white">HAUTE</span>
+              <span class="line-gold"><em>HERITAGE.</em></span>
             </h1>
 
             <p class="hero-subtitle fade-up" style="transition-delay:0.15s">
-              The premier destination for elite football culture, classic vintage archive kits &amp; verified museum-grade jerseys.
+              Curating the world’s most prestigious football heritage — historic archive kits, match-grade player editions, and timeless club classics.
             </p>
 
             <div class="hero-bottom fade-up" style="transition-delay:0.2s">
               <div class="hero-cta">
                 <a href="#" class="btn-browse" data-page="teams" id="hero-browse-btn">
-                  <span>BROWSE DROPS</span>
+                  <span>DISCOVER CLUBS</span>
                   <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 </a>
                 <a href="#" class="btn-secondary-pill" data-page="catalog" data-filter="retro">
-                  <span>RETRO ARCHIVES</span>
+                  <span><em>Explore</em> Retro Archive</span>
                 </a>
               </div>
 
               <div class="hero-active">
-                <div class="label">ACTIVE SELECTION</div>
-                <div class="value">25+ ELITE CLUBS</div>
+                <div class="label">Curated Selection</div>
+                <div class="value">25+ Elite Historic Clubs</div>
               </div>
             </div>
           </div>
-
-        </div>
-
-        <div class="hero-dots fade-up" style="transition-delay:0.3s">
-          <div class="hero-dot active"></div>
-          <div class="hero-dot"></div>
-          <div class="hero-dot"></div>
         </div>
       </section>
 
@@ -167,27 +136,25 @@
       <div class="marquee-strip" aria-hidden="true">
         <div class="marquee-track" id="marquee-track">
           <!-- First copy -->
-          <div class="marquee-item green">Authentic Identity<span class="marquee-sep"></span></div>
-          <div class="marquee-item">Museum Grade Kits<span class="marquee-sep"></span></div>
-          <div class="marquee-item green">Verified Authentic<span class="marquee-sep"></span></div>
-          <div class="marquee-item">Premium Heritage<span class="marquee-sep"></span></div>
-          <div class="marquee-item green">Fan Fit · Player Fit · Retro<span class="marquee-sep"></span></div>
-          <div class="marquee-item">Worldwide Shipping<span class="marquee-sep"></span></div>
-          <div class="marquee-item green">Custom Name Printing<span class="marquee-sep"></span></div>
-          <div class="marquee-item">Season 25/26 Drops<span class="marquee-sep"></span></div>
-          <div class="marquee-item green">25+ Elite Clubs<span class="marquee-sep"></span></div>
-          <div class="marquee-item">Flat €5 Express Shipping<span class="marquee-sep"></span></div>
+          <div class="marquee-item gold">Haute Football Heritage<span class="marquee-sep">✦</span></div>
+          <div class="marquee-item">Museum Grade Kits<span class="marquee-sep">✧</span></div>
+          <div class="marquee-item gold">Verified Authentic Archive<span class="marquee-sep">⚜</span></div>
+          <div class="marquee-item">Supporter &amp; Match Editions<span class="marquee-sep">✦</span></div>
+          <div class="marquee-item gold">Custom Name &amp; Number Printing<span class="marquee-sep">✧</span></div>
+          <div class="marquee-item">Global Express Delivery<span class="marquee-sep">⚜</span></div>
+          <div class="marquee-item gold">Season 25/26 New Drops<span class="marquee-sep">✦</span></div>
+          <div class="marquee-item">25+ Historic Selections<span class="marquee-sep">✧</span></div>
+          <div class="marquee-item gold">Flat €5 Worldwide Shipping<span class="marquee-sep">⚜</span></div>
           <!-- Duplicate for seamless loop -->
-          <div class="marquee-item green">Authentic Identity<span class="marquee-sep"></span></div>
-          <div class="marquee-item">Museum Grade Kits<span class="marquee-sep"></span></div>
-          <div class="marquee-item green">Verified Authentic<span class="marquee-sep"></span></div>
-          <div class="marquee-item">Premium Heritage<span class="marquee-sep"></span></div>
-          <div class="marquee-item green">Fan Fit · Player Fit · Retro<span class="marquee-sep"></span></div>
-          <div class="marquee-item">Worldwide Shipping<span class="marquee-sep"></span></div>
-          <div class="marquee-item green">Custom Name Printing<span class="marquee-sep"></span></div>
-          <div class="marquee-item">Season 25/26 Drops<span class="marquee-sep"></span></div>
-          <div class="marquee-item green">25+ Elite Clubs<span class="marquee-sep"></span></div>
-          <div class="marquee-item">Flat €5 Express Shipping<span class="marquee-sep"></span></div>
+          <div class="marquee-item gold">Haute Football Heritage<span class="marquee-sep">✦</span></div>
+          <div class="marquee-item">Museum Grade Kits<span class="marquee-sep">✧</span></div>
+          <div class="marquee-item gold">Verified Authentic Archive<span class="marquee-sep">⚜</span></div>
+          <div class="marquee-item">Supporter &amp; Match Editions<span class="marquee-sep">✦</span></div>
+          <div class="marquee-item gold">Custom Name &amp; Number Printing<span class="marquee-sep">✧</span></div>
+          <div class="marquee-item">Global Express Delivery<span class="marquee-sep">⚜</span></div>
+          <div class="marquee-item gold">Season 25/26 New Drops<span class="marquee-sep">✦</span></div>
+          <div class="marquee-item">25+ Historic Selections<span class="marquee-sep">✧</span></div>
+          <div class="marquee-item gold">Flat €5 Worldwide Shipping<span class="marquee-sep">⚜</span></div>
         </div>
       </div>
 
@@ -197,19 +164,19 @@
           <div class="stats-grid">
             <div class="stat-item">
               <span class="stat-number" data-target="200" data-suffix="+">200+</span>
-              <div class="stat-label">Jerseys In Stock</div>
+              <div class="stat-label">Archived Kits in Stock</div>
             </div>
             <div class="stat-item">
               <span class="stat-number" data-target="25" data-suffix="+">25+</span>
-              <div class="stat-label">Elite Clubs</div>
+              <div class="stat-label">Prestigious Clubs</div>
             </div>
             <div class="stat-item">
               <span class="stat-number" data-target="15" data-suffix="+">15+</span>
-              <div class="stat-label">Countries Delivered</div>
+              <div class="stat-label">Nations Delivered</div>
             </div>
             <div class="stat-item">
               <span class="stat-number" data-target="5" data-prefix="€">€5</span>
-              <div class="stat-label">Flat Rate Shipping</div>
+              <div class="stat-label">Flat Worldwide Shipping</div>
             </div>
           </div>
         </div>
@@ -219,10 +186,10 @@
       <section class="section">
         <div class="section-header fade-up">
           <div>
-            <div class="section-title">Featured <span>Drops</span></div>
-            <p class="section-subtitle-text">Verified museum-grade archive kits &amp; player edition jerseys</p>
+            <div class="section-title">Featured <span class="fancy-italic">Curations</span></div>
+            <p class="section-subtitle-text">Verified museum-grade archive editions &amp; bespoke match kits</p>
           </div>
-          <a href="#" class="section-link" data-page="teams">Explore All Clubs →</a>
+          <a href="#" class="section-link" data-page="teams">Explore All Clubs</a>
         </div>
         <div id="featured-jerseys" class="jersey-grid"></div>
       </section>
@@ -242,19 +209,19 @@
               <div class="pricing-label">Match Specification</div>
             </div>
             <div class="pricing-item">
-              <span class="pricing-badge retro">RETRO EDITION</span>
-              <div class="pricing-value" id="price-retro" style="color:var(--green)">€25</div>
-              <div class="pricing-label">Archive Vintage Classic</div>
+              <span class="pricing-badge retro">RETRO ARCHIVE</span>
+              <div class="pricing-value" id="price-retro" style="color:var(--gold-light)">€25</div>
+              <div class="pricing-label">Historic Vintage Classic</div>
             </div>
             <div class="pricing-item">
-              <span class="pricing-badge gold">CUSTOM PRINT</span>
+              <span class="pricing-badge gold">CUSTOM SCRIPT</span>
               <div class="pricing-value" style="color:var(--accent-gold)">+€5</div>
-              <div class="pricing-label">Name &amp; Number Print</div>
+              <div class="pricing-label">Name &amp; Number Press</div>
             </div>
             <div class="pricing-item">
-              <span class="pricing-badge shipping">EXPRESS RATE</span>
+              <span class="pricing-badge shipping">EXPRESS DISPATCH</span>
               <div class="pricing-value" id="price-delivery">€5</div>
-              <div class="pricing-label">Worldwide Shipping</div>
+              <div class="pricing-label">Global Flat Rate</div>
             </div>
           </div>
         </div>
@@ -263,24 +230,19 @@
 
     <!-- ─── Catalog Page ─── -->
     <div id="page-catalog" style="display:none">
-      <!-- Layout corners -->
-      <div class="tech-layout-bracket tl-br">[</div>
-      <div class="tech-layout-bracket tr-br">]</div>
-      <div class="tech-layout-bracket bl-br">[</div>
-      <div class="tech-layout-bracket br-br">]</div>
       <div class="section">
         <div class="section-header fade-up">
-          <div class="section-title" id="catalog-title">All <span>Kits</span></div>
+          <div class="section-title" id="catalog-title">Archive <span class="fancy-italic">Collection</span></div>
         </div>
         <!-- Category Filter Bar -->
         <div class="category-filter-bar fade-up" id="category-filter-bar">
-          <button class="cat-filter-btn active" data-category="all">All Kits</button>
+          <button class="cat-filter-btn active" data-category="all">All Editions</button>
           <button class="cat-filter-btn" data-category="home">Home</button>
           <button class="cat-filter-btn" data-category="away">Away</button>
           <button class="cat-filter-btn" data-category="third">Third</button>
-          <button class="cat-filter-btn" data-category="retro">Retro</button>
+          <button class="cat-filter-btn" data-category="retro">Vintage Retro</button>
           <button class="cat-filter-btn" data-category="training">Training</button>
-          <button class="cat-filter-btn" data-category="tracksuit">Tracksuit</button>
+          <button class="cat-filter-btn" data-category="tracksuit">Tracksuits</button>
         </div>
         <div id="catalog-jerseys" class="jersey-grid"></div>
       </div>
@@ -290,7 +252,7 @@
     <div id="page-teams" style="display:none">
       <div class="section">
         <div class="section-header fade-up">
-          <div class="section-title">All Clubs <span>&amp;</span> Selections</div>
+          <div class="section-title">Historic Clubs <span class="fancy-italic">&amp; Nations</span></div>
         </div>
         <div id="teams-list" class="teams-grid"></div>
       </div>
@@ -299,7 +261,7 @@
     <!-- ─── Individual Team ─── -->
     <div id="page-team" style="display:none">
       <div style="padding-top: 40px;">
-        <a href="#" class="back-link" data-page="teams">← Back to Teams</a>
+        <a href="#" class="back-link" data-page="teams">← Return to Clubs</a>
         <h2 id="team-name">Collection</h2>
         <div id="team-jerseys" class="jersey-grid"></div>
       </div>
@@ -308,21 +270,16 @@
     <!-- ─── Jersey Detail ─── -->
     <div id="page-detail" style="display:none">
       <div style="padding-top: 40px;">
-        <a href="#" class="back-link" data-page="home">← Back to Shop</a>
+        <a href="#" class="back-link" data-page="home">← Return to Boutique</a>
         <div id="jersey-detail"></div>
       </div>
     </div>
 
     <!-- ─── Profile Page ─── -->
     <div id="page-profile" style="display:none">
-      <!-- Layout corners -->
-      <div class="tech-layout-bracket tl-br">[</div>
-      <div class="tech-layout-bracket tr-br">]</div>
-      <div class="tech-layout-bracket bl-br">[</div>
-      <div class="tech-layout-bracket br-br">]</div>
       <div class="section">
         <div class="section-header fade-up">
-          <div class="section-title">Your <span>Orders</span></div>
+          <div class="section-title">Your <span class="fancy-italic">Acquisitions</span></div>
         </div>
         <div id="profile-content"></div>
       </div>
@@ -451,11 +408,26 @@
       </div>
     </div>
 
+    <!-- ─── Image Reorder Modal ─── -->
+    <div id="image-reorder-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:10000;align-items:center;justify-content:center;">
+      <div style="background:var(--bg-1);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:700px;width:95%;max-height:85vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="margin:0;color:var(--text-1);">Reorder Images</h3>
+          <button id="img-reorder-close" style="background:none;border:none;color:var(--text-2);font-size:24px;cursor:pointer;">&times;</button>
+        </div>
+        <p style="color:var(--text-2);font-size:13px;margin-bottom:16px;">The <strong>first image</strong> will be the front view shown on the shop and detail page. Use ↑↓ buttons to reorder.</p>
+        <div id="img-reorder-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;"></div>
+        <div style="margin-top:16px;text-align:right;">
+          <button id="img-reorder-save" class="btn btn-primary">Save Order</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ─── Cart ─── -->
     <div id="page-cart" style="display:none">
       <div class="section">
         <div class="section-header fade-up">
-          <div class="section-title">Your <span>Bag</span></div>
+          <div class="section-title">Your <span class="fancy-italic">Shopping Bag</span></div>
         </div>
         <div id="cart-items"></div>
         <div id="cart-summary"></div>
@@ -466,7 +438,7 @@
     <div id="page-checkout" style="display:none">
       <div class="section">
         <div class="section-header fade-up">
-          <div class="section-title">Secure <span>Checkout</span></div>
+          <div class="section-title">Bespoke <span class="fancy-italic">Checkout</span></div>
         </div>
         <form id="checkout-form">
           <div class="checkout-container">
