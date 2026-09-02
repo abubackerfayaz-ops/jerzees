@@ -1559,11 +1559,20 @@ app.get('/api/img-proxy', (req, res) => {
 
 // ─── SPA FALLBACK & ERROR HANDLER ─────────────────────────────────────────
 
+// Version endpoint to easily verify live deployment
+app.get('/api/version', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache');
+  res.json({ version: '3.5.0', deployedAt: new Date().toISOString() });
+});
+
 // Serve index.html for any unmatched non-API route (SPA client-side routing)
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'Not found' });
   }
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
