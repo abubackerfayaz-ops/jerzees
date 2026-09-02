@@ -694,19 +694,49 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderDetailContent() {
-      const isPlaceholder = !jersey.image_url;
+      let allImages = [];
+      if (jersey.images && jersey.images.length) {
+        allImages = jersey.images.map(img => img.image_url).filter(Boolean);
+      }
+      if (!allImages.length && jersey.image_url) {
+        allImages = [jersey.image_url];
+      }
+      const hasMultipleImages = allImages.length > 1;
+
+      const isPlaceholder = !allImages.length;
       const svgFallback = `<div class="jersey-placeholder-container img-fallback" style="width:100%;height:100%;${isPlaceholder ? '' : 'display:none;'}">${getJerseySvg(jersey.team_slug, 'jersey-placeholder-svg')}</div>`;
-      const imgHtml = isPlaceholder
-        ? ''
-        : `<img id="detail-main-img" src="${proxyImg(jersey.image_url)}" alt="${jersey.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">` ;
+
+      const carouselImgs = allImages.map((url, i) =>
+        `<img class="carousel-img" src="${proxyImg(url)}" alt="${jersey.name} - View ${i + 1}" loading="${i === 0 ? 'eager' : 'lazy'}" onerror="this.style.display='none';">`
+      ).join('');
+
+      const carouselDots = allImages.map((_, i) =>
+        `<button class="detail-carousel-dot ${i === 0 ? 'active' : ''}" data-index="${i}" aria-label="View image ${i + 1}"></button>`
+      ).join('');
+
+      const carouselNav = hasMultipleImages ? `
+        <button class="detail-carousel-nav detail-carousel-prev" aria-label="Previous image">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <button class="detail-carousel-nav detail-carousel-next" aria-label="Next image">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
+        </button>
+        <div class="detail-carousel-counter"><span id="carousel-current">1</span> / ${allImages.length}</div>
+      ` : '';
 
       container.innerHTML = `
-        <div class="detail-image" id="detail-zoom-trigger">
-          ${imgHtml}${svgFallback}
-          <div class="zoom-overlay">
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 15l6 6m-11-4a7 7 0 110-14 7 7 0 010 14z"></path></svg>
-            Click to Expand
+        <div>
+          <div class="detail-carousel" id="detail-carousel">
+            <div class="detail-carousel-track" id="detail-carousel-track">
+              ${carouselImgs}${svgFallback}
+            </div>
+            ${carouselNav}
+            <div class="zoom-overlay" id="detail-zoom-trigger" style="position:absolute;bottom:16px;right:16px;z-index:10;">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 15l6 6m-11-4a7 7 0 110-14 7 7 0 010 14z"></path></svg>
+              Click to Expand
+            </div>
           </div>
+          ${hasMultipleImages ? `<div class="detail-carousel-dots" id="detail-carousel-dots">${carouselDots}</div>` : ''}
         </div>
         <div class="detail-info">
           <h2>${jersey.name}</h2>
@@ -772,8 +802,64 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
 
+      // ─── Carousel Logic ───
+      if (hasMultipleImages) {
+        let currentSlide = 0;
+        const track = document.getElementById('detail-carousel-track');
+        const dots = document.querySelectorAll('.detail-carousel-dot');
+        const counter = document.getElementById('carousel-current');
+        const prevBtn = document.querySelector('.detail-carousel-prev');
+        const nextBtn = document.querySelector('.detail-carousel-next');
+
+        function goToSlide(index) {
+          if (index < 0) index = allImages.length - 1;
+          if (index >= allImages.length) index = 0;
+          currentSlide = index;
+          track.style.transform = 'translateX(-' + (currentSlide * 100) + '%)';
+          dots.forEach(function(d, i) { d.classList.toggle('active', i === currentSlide); });
+          if (counter) counter.textContent = currentSlide + 1;
+        }
+
+        dots.forEach(function(dot) {
+          dot.addEventListener('click', function() {
+            goToSlide(parseInt(dot.dataset.index));
+          });
+        });
+        if (prevBtn) prevBtn.addEventListener('click', function() { goToSlide(currentSlide - 1); });
+        if (nextBtn) nextBtn.addEventListener('click', function() { goToSlide(currentSlide + 1); });
+
+        // Touch/swipe support
+        var touchStartX = 0;
+        var touchDeltaX = 0;
+        var carousel = document.getElementById('detail-carousel');
+        carousel.addEventListener('touchstart', function(e) {
+          touchStartX = e.touches[0].clientX;
+          touchDeltaX = 0;
+          track.classList.add('dragging');
+        }, { passive: true });
+        carousel.addEventListener('touchmove', function(e) {
+          touchDeltaX = e.touches[0].clientX - touchStartX;
+          track.style.transform = 'translateX(calc(-' + (currentSlide * 100) + '% + ' + touchDeltaX + 'px))';
+        }, { passive: true });
+        carousel.addEventListener('touchend', function() {
+          track.classList.remove('dragging');
+          if (Math.abs(touchDeltaX) > 50) {
+            goToSlide(touchDeltaX > 0 ? currentSlide - 1 : currentSlide + 1);
+          } else {
+            goToSlide(currentSlide);
+          }
+        });
+
+        // Store reference for zoom modal
+        window._detailCarouselImages = allImages;
+        window._detailCarouselGetCurrentIndex = function() { return currentSlide; };
+      } else {
+        window._detailCarouselImages = allImages;
+        window._detailCarouselGetCurrentIndex = function() { return 0; };
+      }
+
       // Set zoom event listener
-      document.getElementById('detail-zoom-trigger').addEventListener('click', () => {
+      document.getElementById('detail-zoom-trigger').addEventListener('click', function() {
         openZoomModal(jersey);
       });
 
@@ -841,30 +927,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Zoom Modal Handler
   function openZoomModal(jersey) {
-    const modal = document.getElementById('image-modal');
-    const modalImg = document.getElementById('modal-image');
-    
-    // Clear and swap
-    modal.classList.add('active');
-    
-    const isPlaceholder = !jersey.image_url;
-    const modalSvg = `<div style="width:75%;height:75%;display:flex;align-items:center;justify-content:center;${isPlaceholder ? '' : 'display:none;'}">${getJerseySvg(jersey.team_slug, 'jersey-placeholder-svg')}</div>`;
-    const modalImgHtml = isPlaceholder
-      ? ''
-      : `<img id="modal-image" src="${proxyImg(jersey.image_url)}" alt="${jersey.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`;
-    modal.innerHTML = `
-      <span class="modal-close" id="modal-close-btn">&times;</span>
-      ${modalImgHtml}${modalSvg}
-    `;
+    var modal = document.getElementById('image-modal');
+    var allImages = window._detailCarouselImages || (jersey.images && jersey.images.length ? jersey.images.map(function(i){ return i.image_url; }).filter(Boolean) : []) || (jersey.image_url ? [jersey.image_url] : []);
+    var startIdx = window._detailCarouselGetCurrentIndex ? window._detailCarouselGetCurrentIndex() : 0;
+    var modalIdx = startIdx;
 
-    // Attach close button
-    const closeBtn = document.getElementById('modal-close-btn') || modal;
-    closeBtn.addEventListener('click', () => {
-      modal.classList.remove('active');
-    });
-    modal.addEventListener('click', () => {
-      modal.classList.remove('active');
-    });
+    function renderModalImage() {
+      var url = allImages[modalIdx];
+      var isPlaceholder = !url;
+      var modalSvg = '<div style="width:75%;height:75%;display:flex;align-items:center;justify-content:center;' + (isPlaceholder ? '' : 'display:none;') + '">' + getJerseySvg(jersey.team_slug, 'jersey-placeholder-svg') + '</div>';
+      var modalImgHtml = isPlaceholder ? '' : '<img id="modal-image" src="' + proxyImg(url) + '" alt="' + jersey.name + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';">';
+      var navHtml = allImages.length > 1 ?
+        '<button class="modal-nav-prev" style="position:absolute;left:16px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;backdrop-filter:blur(8px);font-size:1.2rem;">&#8249;</button>' +
+        '<button class="modal-nav-next" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;backdrop-filter:blur(8px);font-size:1.2rem;">&#8250;</button>' +
+        '<div style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);font-family:var(--font-display);font-size:0.7rem;font-weight:700;letter-spacing:1px;color:var(--gray);background:rgba(0,0,0,0.6);padding:4px 12px;border-radius:999px;backdrop-filter:blur(8px);">' + (modalIdx + 1) + ' / ' + allImages.length + '</div>' : '';
+
+      modal.innerHTML = '<span class="modal-close" id="modal-close-btn">&times;</span>' + modalImgHtml + modalSvg + navHtml;
+
+      var closeBtn = document.getElementById('modal-close-btn');
+      if (closeBtn) closeBtn.addEventListener('click', function() { modal.classList.remove('active'); });
+
+      if (allImages.length > 1) {
+        var prev = modal.querySelector('.modal-nav-prev');
+        var next = modal.querySelector('.modal-nav-next');
+        if (prev) prev.addEventListener('click', function(e) { e.stopPropagation(); modalIdx = (modalIdx - 1 + allImages.length) % allImages.length; renderModalImage(); });
+        if (next) next.addEventListener('click', function(e) { e.stopPropagation(); modalIdx = (modalIdx + 1) % allImages.length; renderModalImage(); });
+      }
+    }
+
+    modal.classList.add('active');
+    renderModalImage();
+    modal.addEventListener('click', function() { modal.classList.remove('active'); });
   }
 
   // Cart operations
