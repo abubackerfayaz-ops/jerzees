@@ -1741,18 +1741,44 @@ document.addEventListener('DOMContentLoaded', () => {
   // ─── HAMBURGER MENU ───────────────────────────────────────────────────────
   const hamburger = document.getElementById('hamburger-btn');
   const mainNav = document.getElementById('main-nav');
+
+  // iOS-safe scroll lock: preserve scroll position, use position:fixed
+  let scrollY = 0;
+  function lockScroll() {
+    scrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    document.body.style.overflowY = 'scroll'; // prevent width jump
+  }
+  function unlockScroll() {
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+    document.body.style.overflowY = '';
+    window.scrollTo(0, scrollY);
+  }
+
   if (hamburger && mainNav) {
     hamburger.addEventListener('click', () => {
       const isActive = hamburger.classList.toggle('active');
       mainNav.classList.toggle('active', isActive);
-      document.body.style.overflow = isActive ? 'hidden' : '';
+      if (isActive) lockScroll(); else unlockScroll();
     });
     mainNav.querySelectorAll('a').forEach(a => {
       a.addEventListener('click', () => {
         hamburger.classList.remove('active');
         mainNav.classList.remove('active');
-        document.body.style.overflow = '';
+        unlockScroll();
       });
+    });
+    // Also close on tap outside nav
+    mainNav.addEventListener('click', (e) => {
+      if (e.target === mainNav) {
+        hamburger.classList.remove('active');
+        mainNav.classList.remove('active');
+        unlockScroll();
+      }
     });
   }
 

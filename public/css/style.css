@@ -2111,13 +2111,17 @@ footer::before {
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    justify-content: center !important;
-    gap: 10px !important;
+    /* scroll if many links on small screen */
+    justify-content: flex-start !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 8px !important;
     z-index: 550 !important;
     opacity: 0 !important;
     pointer-events: none !important;
     transition: opacity 0.25s ease !important;
-    padding: 80px 24px 48px !important;
+    /* top pad = header height + some breathing room */
+    padding: 80px 24px calc(48px + env(safe-area-inset-bottom, 0px)) !important;
   }
   nav.active {
     opacity: 1 !important;
@@ -2125,14 +2129,15 @@ footer::before {
   }
   nav a {
     width: 100% !important;
-    max-width: 280px !important;
-    height: 52px !important;
+    max-width: 320px !important;
+    min-height: 48px !important;
+    flex-shrink: 0 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     font-family: var(--font-caps) !important;
-    font-size: 0.78rem !important;
-    letter-spacing: 3px !important;
+    font-size: 0.76rem !important;
+    letter-spacing: 2.5px !important;
     text-transform: uppercase !important;
     color: var(--gray-light) !important;
     border: 1px solid rgba(223,184,115,0.12) !important;
@@ -2140,6 +2145,7 @@ footer::before {
     background: rgba(255,255,255,0.025) !important;
     text-decoration: none !important;
     transition: var(--transition) !important;
+    padding: 0 16px !important;
   }
   nav a:hover, nav a.active {
     color: var(--gold-light) !important;
