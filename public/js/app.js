@@ -429,12 +429,6 @@ document.addEventListener('DOMContentLoaded', () => {
       renderAdminPage();
     }
 
-    // Hide sticky mobile bar when not on detail page
-    const stickyCta = document.getElementById('mobile-sticky-cta');
-    if (stickyCta && page !== 'detail') {
-      stickyCta.style.display = 'none';
-    }
-
     updateCartCount();
   }
 
@@ -895,27 +889,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (priceText) {
         priceText.textContent = formatPrice(getCombinedPrice());
       }
-      // Sync sticky mobile bar price
-      const stickyPrice = document.getElementById('mobile-sticky-price');
-      if (stickyPrice) stickyPrice.textContent = formatPrice(getCombinedPrice());
     }
 
     renderDetailContent();
-
-    // ─── Sticky mobile Add to Bag bar ───
-    const stickyCta = document.getElementById('mobile-sticky-cta');
-    const stickyBtn = document.getElementById('mobile-sticky-btn');
-    const stickyPrice = document.getElementById('mobile-sticky-price');
-    if (stickyCta && stickyBtn && stickyPrice) {
-      // Only show on mobile viewports
-      if (window.innerWidth <= 768) {
-        stickyCta.style.display = 'flex';
-        stickyPrice.textContent = formatPrice(getCombinedPrice());
-        stickyBtn.onclick = () => {
-          addToCart(jersey, selectedVersion, selectedSize, printNameText, priceTiers[selectedVersion]);
-        };
-      }
-    }
   }
 
   // Zoom Modal Handler
