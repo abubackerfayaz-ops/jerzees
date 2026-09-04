@@ -1493,6 +1493,10 @@ app.get('/api/admin/sales/summary', adminRequired, async (req, res) => {
 
 const IMAGE_CACHE_DIR = path.join(__dirname, 'data', 'images');
 
+// Rate limiter: max 60 proxy requests per minute per IP
+const proxyHits = new Map();
+setInterval(() => { proxyHits.clear(); }, 60000);
+
 function getCachedImagePath(url) {
   const hash = crypto.createHash('md5').update(url).digest('hex');
   return path.join(IMAGE_CACHE_DIR, hash);
@@ -1501,6 +1505,12 @@ function getCachedImagePath(url) {
 app.get('/api/img-proxy', (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).send('url required');
+
+  // Rate limit per IP
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  const hits = (proxyHits.get(ip) || 0) + 1;
+  proxyHits.set(ip, hits);
+  if (hits > 60) return res.status(429).send('rate limit exceeded');
 
   let target;
   try { target = new URL(url); } catch { return res.status(400).send('invalid url'); }
@@ -1543,7 +1553,8 @@ app.get('/api/img-proxy', (req, res) => {
 
     const contentType = upstream.headers['content-type'] || 'image/jpeg';
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Cache-Control', 'public, max-age=2592000, s-maxage=2592000');
+    res.setHeader('CDN-Cache-Control', 'public, max-age=2592000');
 
     // Save to disk while streaming to client
     if (!fs.existsSync(IMAGE_CACHE_DIR)) fs.mkdirSync(IMAGE_CACHE_DIR, { recursive: true });
@@ -1562,7 +1573,7 @@ app.get('/api/img-proxy', (req, res) => {
 // Version endpoint to easily verify live deployment
 app.get('/api/version', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache');
-  res.json({ version: '3.8.0', deployedAt: new Date().toISOString() });
+  res.json({ version: '3.9.0', deployedAt: new Date().toISOString() });
 });
 
 // Serve index.html for any unmatched non-API route (SPA client-side routing)
