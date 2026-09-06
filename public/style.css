@@ -2481,3 +2481,49 @@ footer::before {
   overflow-y: auto;
 }
 #image-reorder-overlay.active { display: flex; }
+
+/* ─── Mobile Navigation Drawer ─── */
+@media (max-width: 900px) {
+  .hamburger {
+    display: flex !important;
+  }
+  nav, #main-nav {
+    position: fixed !important;
+    top: 0 !important;
+    right: -100% !important;
+    width: 290px !important;
+    max-width: 85vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    background: rgba(8, 8, 12, 0.97) !important;
+    backdrop-filter: blur(28px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    padding: 95px 28px 40px !important;
+    gap: 16px !important;
+    z-index: 1050 !important;
+    transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease !important;
+    box-shadow: none !important;
+    overflow-y: auto !important;
+  }
+  nav.active, #main-nav.active {
+    right: 0 !important;
+    box-shadow: -20px 0 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(179, 240, 0, 0.12) !important;
+  }
+  nav a, #main-nav a {
+    display: flex !important;
+    font-size: 1.15rem !important;
+    letter-spacing: 2px !important;
+    padding: 12px 0 !important;
+    width: 100% !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+    color: var(--gray-light) !important;
+  }
+  nav a:hover, nav a.active, #main-nav a:hover, #main-nav a.active {
+    color: var(--green) !important;
+    transform: translateX(6px) !important;
+  }
+}
