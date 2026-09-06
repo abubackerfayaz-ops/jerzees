@@ -2336,17 +2336,22 @@ footer::before {
   display: flex;
   width: 100%;
   height: 100%;
+  position: relative;
   transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .detail-carousel-track.dragging { transition: none; }
 .detail-carousel-track .carousel-img {
-  width: 100%;
-  min-width: 100%;
-  max-width: 100%;
-  height: 100%;
-  object-fit: contain;
-  flex-shrink: 0;
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  flex-shrink: 0 !important;
   user-select: none;
+  display: block !important;
 }
 .detail-carousel-nav {
   position: absolute;
