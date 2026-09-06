@@ -34,13 +34,21 @@ function Should-Ignore($path) {
     return $false
 }
 
+function Get-GitToken {
+    $input = "protocol=https`nhost=github.com`n"
+    $output = echo $input | git credential fill 2>&1
+    foreach ($line in $output) {
+        if ($line -match "^password=(.+)$") { return $Matches[1] }
+    }
+    return $null
+}
+
 function Do-Sync {
     Set-Location $workspace
     $env:GIT_TERMINAL_PROMPT = "0"
     
     $status = git status --porcelain 2>&1
     if (-not $status) {
-        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] No changes to commit" -ForegroundColor DarkGray
         return
     }
 
@@ -48,21 +56,29 @@ function Do-Sync {
     
     git add -A 2>&1 | Out-Null
     
-    # Get changed files for commit message
     $changed = git diff --cached --name-only 2>&1
     $fileCount = ($changed | Measure-Object).Count
     $summary = if ($fileCount -le 3) { $changed -join ", " } else { "$fileCount files" }
     
     git commit -m "auto: $summary" 2>&1 | Out-Null
     
-    # Push (credential manager will handle auth when running in VS Code terminal)
+    # Get token from credential manager for non-interactive push
+    $token = Get-GitToken
+    $remoteUrl = git remote get-url origin 2>&1
+    if ($token -and $remoteUrl -notmatch "ghp_|gho_") {
+        $secureUrl = $remoteUrl -replace "https://", "https://abubackerfayaz-ops:${token}@"
+        git remote set-url origin $secureUrl
+    }
+    
     $pushOutput = git push origin main 2>&1
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Pushed to GitHub: $summary" -ForegroundColor Green
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Pushed: $summary" -ForegroundColor Green
     } else {
-        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Push failed (will retry on next change)" -ForegroundColor Red
-        Write-Host $pushOutput -ForegroundColor Red
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Push failed, retrying next change" -ForegroundColor Red
     }
+    
+    # Clean up remote URL (remove token)
+    git remote set-url origin https://github.com/abubackerfayaz-ops/jerzees.git
 }
 
 # Watch all important file types

@@ -53,16 +53,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return originalPrices[idNum % originalPrices.length];
   }
 
-  // Renders the price block with slashed original price + discount badge
+  // Renders the price block with slashed original price
   function renderPriceBlock(jersey, saleMin, saleMax) {
     const origEUR = getOriginalPrice(jersey);
-    const discountPct = Math.round((1 - saleMin / origEUR) * 100);
     return `
-      <span class="price-block">
+      <div class="card-price-group">
+        <span class="price">${formatPrice(saleMin)}</span>
         <span class="price-original">${formatPrice(origEUR)}</span>
-        <span class="price">${formatPrice(saleMin)} – ${formatPrice(saleMax)}</span>
-        <span class="discount-badge">Save ${discountPct}%</span>
-      </span>
+      </div>
     `;
   }
 
@@ -345,28 +343,54 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Generate Image Wrapper — pre-renders both img + SVG fallback.
-  // On img load error just adds 'img-error' class; no complex inline string needed.
   function renderJerseyMedia(jersey, wrapperClass = 'jersey-card-image-wrapper', sizeClass = 'jersey-placeholder-svg') {
+    const verifiedBadge = `
+      <div class="card-verified-badge">
+        <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>VERIFIED</span>
+      </div>`;
+
     const svgFallback = `
       <div class="jersey-placeholder-container img-fallback">
         ${getJerseySvg(jersey.team_slug, sizeClass)}
       </div>`;
 
     if (!jersey.image_url) {
-      return `<div class="${wrapperClass}">${svgFallback}</div>`;
+      return `<div class="${wrapperClass}">${verifiedBadge}${svgFallback}</div>`;
     }
 
     return `
       <div class="${wrapperClass}">
+        ${verifiedBadge}
         <img
           src="${proxyImg(jersey.image_url)}"
           alt="${jersey.name}"
+          loading="lazy"
           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
         >
         <div class="jersey-placeholder-container img-fallback" style="display:none;">
           ${getJerseySvg(jersey.team_slug, sizeClass)}
         </div>
       </div>`;
+  }
+
+  function renderJerseyCardHtml(jersey) {
+    const categoryTag = jersey.type ? jersey.type.toUpperCase() : 'NEW DROPS';
+    return `
+      <div class="jersey-card" data-id="${jersey.id}">
+        ${renderJerseyMedia(jersey)}
+        <div class="info">
+          <span class="card-badge-category">${categoryTag}</span>
+          <h4 class="card-title">${jersey.name}</h4>
+          <div class="card-footer">
+            ${renderPriceBlock(jersey, jersey.version_fan || 20, jersey.version_player || 25)}
+            <button class="card-action-btn" aria-label="View Details">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
 
