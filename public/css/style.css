@@ -201,18 +201,19 @@ header.scrolled {
   text-decoration: none;
   display: flex;
   align-items: center;
+  gap: 12px;
   transition: var(--transition);
 }
 .header-logo-img {
-  height: 56px;
-  max-height: 58px;
+  height: 48px;
+  max-height: 52px;
   width: auto;
   object-fit: contain;
   display: block;
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), filter 0.25s ease;
 }
 .logo:hover .header-logo-img {
-  transform: scale(1.08);
+  transform: scale(1.08) rotate(-3deg);
   filter: drop-shadow(0 0 14px rgba(179, 240, 0, 0.5));
 }
 .logo-cyber-text {
@@ -225,6 +226,7 @@ header.scrolled {
   display: inline-flex;
   align-items: baseline;
   text-transform: uppercase;
+  line-height: 1;
 }
 .logo-dot {
   color: var(--green);
