@@ -1,20 +1,15 @@
-const CACHE_NAME = 'jrzees-v4.0.0';
-const STATIC_ASSETS = [
-  '/',
-  '/style.css?v=4.0.0',
-  '/app.js?v=4.0.0'
-];
+const CACHE_NAME = 'jrzees-v5.0.1';
 
 // Install — skip waiting, take control immediately
 self.addEventListener('install', (e) => {
   self.skipWaiting();
 });
 
-// Activate — clean old caches
+// Activate — aggressively clean all old caches
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
@@ -27,9 +22,15 @@ self.addEventListener('fetch', (e) => {
   // Only handle GET
   if (req.method !== 'GET') return;
 
-  // Jersey images (Yupoo and any image) — CacheFirst, immutable for 1y
-  // First visit: network fetch ~ slow, store in CacheStorage. Next visit: cache hit instant.
-  // New jersey = new URL → cache miss → network. Old URLs stay cached.
+  // HTML / Navigation requests: ALWAYS network first to ensure latest UI
+  if (req.mode === 'navigate' || url.pathname === '/' || url.pathname.endsWith('.html')) {
+    e.respondWith(
+      fetch(req).catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // Jersey images (Yupoo and any image) — CacheFirst
   if (
     url.hostname.includes('yupoo.com') ||
     url.hostname.includes('photo.') ||
@@ -41,7 +42,6 @@ self.addEventListener('fetch', (e) => {
           if (cached) return cached;
           return fetch(req)
             .then((res) => {
-              // Only cache successful (including opaque 0)
               if (res && (res.ok || res.type === 'opaque')) {
                 cache.put(req, res.clone());
               }
@@ -54,12 +54,11 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // API: NetworkFirst with cache fallback — so newly added jerseys appear, but second visit still fast if offline
+  // API: NetworkFirst
   if (url.pathname.startsWith('/api/')) {
     e.respondWith(
       fetch(req)
         .then((res) => {
-          // Cache successful GET api responses for 5 min
           if (res.ok) {
             const clone = res.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
@@ -71,23 +70,21 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // CSS/JS/logo — CacheFirst (versioned via ?v=, so new deploy = new URL)
+  // CSS/JS: NetworkFirst with cache fallback to prevent stale styles
   if (
     url.pathname.endsWith('.css') ||
-    url.pathname.endsWith('.js') ||
-    url.pathname.endsWith('.png') ||
-    url.pathname.endsWith('.webp')
+    url.pathname.endsWith('.js')
   ) {
     e.respondWith(
-      caches.open(CACHE_NAME).then((cache) =>
-        cache.match(req).then((cached) => {
-          if (cached) return cached;
-          return fetch(req).then((res) => {
-            if (res.ok) cache.put(req, res.clone());
-            return res;
-          });
+      fetch(req)
+        .then((res) => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+          }
+          return res;
         })
-      )
+        .catch(() => caches.match(req))
     );
   }
 });

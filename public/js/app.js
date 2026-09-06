@@ -516,26 +516,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!jerseys.length) {
       jerseys = await apiFetch('/api/jerseys');
       if (!Array.isArray(jerseys)) jerseys = [];
-      if (titleEl) titleEl.innerHTML = 'Archive <span class="fancy-italic">Collection</span>';
+      if (titleEl) titleEl.innerHTML = 'COLLECTION';
       state.activeCategory = 'all';
       document.querySelectorAll('#category-filter-bar .cat-filter-btn').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-category') === 'all');
       });
     }
 
-    container.innerHTML = jerseys.map(jersey => `
-      <div class="jersey-card" data-id="${jersey.id}">
-        ${renderJerseyMedia(jersey)}
-        <div class="info">
-          <h4>${jersey.name}</h4>
-          <span class="team-label">${jersey.team_name}</span>
-          <div class="card-footer">
-            ${renderPriceBlock(jersey, 20, 25)}
-            <span class="view-details-btn">View Edition</span>
-          </div>
-        </div>
-      </div>
-    `).join('');
+    container.innerHTML = jerseys.map(jersey => renderJerseyCardHtml(jersey)).join('');
 
     container.querySelectorAll('.jersey-card').forEach(card => {
       card.addEventListener('click', () => {
@@ -546,35 +534,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Load Featured Jerseys on Homepage
-  async function loadFeaturedJerseys() {
+  async function loadFeaturedJerseys(category = 'all') {
     const container = document.getElementById('featured-jerseys');
     if (!container) return;
     container.innerHTML = '<div class="cart-empty"><p>Loading exclusive products...</p></div>';
     
-    const data = await apiFetch('/api/jerseys?featured=1');
+    let url = '/api/jerseys?featured=1';
+    if (category === 'new') url = '/api/jerseys?sort=new&limit=8';
+    else if (category === 'retro') url = '/api/jerseys?category=retro&limit=8';
+
+    const data = await apiFetch(url);
     if (data && data.error) {
       container.innerHTML = '<div class="cart-empty"><p>Couldn\'t load products right now. Please try again.</p></div>';
       return;
     }
     const jerseys = Array.isArray(data) ? data : [];
     if (!jerseys.length) {
-      container.innerHTML = '<div class="cart-empty"><p>No featured jerseys found.</p></div>';
+      container.innerHTML = '<div class="cart-empty"><p>No products found.</p></div>';
       return;
     }
 
-    container.innerHTML = jerseys.map(jersey => `
-      <div class="jersey-card" data-id="${jersey.id}">
-        ${renderJerseyMedia(jersey)}
-        <div class="info">
-          <h4>${jersey.name}</h4>
-          <span class="team-label">${jersey.team_name}</span>
-          <div class="card-footer">
-            ${renderPriceBlock(jersey, 20, 25)}
-            <span class="view-details-btn">View Edition</span>
-          </div>
-        </div>
-      </div>
-    `).join('');
+    container.innerHTML = jerseys.map(jersey => renderJerseyCardHtml(jersey)).join('');
 
     // Attach card event listeners
     container.querySelectorAll('.jersey-card').forEach(card => {
@@ -592,19 +572,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const data = await apiFetch('/api/teams');
     if (data && data.error) {
-      container.innerHTML = '<div class="cart-empty"><p>Couldn\'t load teams right now. Please try again.</p></div>';
+      container.innerHTML = '<div class="cart-empty"><p>Couldn\'t load clubs right now.</p></div>';
       return;
     }
-    const teams = Array.isArray(data) ? data.filter(t => Number(t.jersey_count) > 0) : [];
+    const teams = Array.isArray(data) ? data : [];
     if (!teams.length) {
-      container.innerHTML = '<div class="cart-empty"><p>No teams available.</p></div>';
+      container.innerHTML = '<div class="cart-empty"><p>No clubs found.</p></div>';
       return;
     }
 
     container.innerHTML = teams.map(team => `
       <div class="team-card" data-id="${team.id}">
+        <div class="team-crest-wrapper">
+          <div class="team-crest-img">${team.name.substring(0, 3).toUpperCase()}</div>
+        </div>
         <h3>${team.name}</h3>
-        <p>${team.country || 'International'}</p>
+        <p>${team.country || 'Elite Football'}</p>
       </div>
     `).join('');
 
@@ -620,11 +603,12 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadTeamJerseys(teamId) {
     const container = document.getElementById('team-jerseys');
     const headerTitle = document.getElementById('team-name');
+    if (!container) return;
     container.innerHTML = '<div class="cart-empty"><p>Loading team collection...</p></div>';
 
     const data = await apiFetch(`/api/jerseys?team_id=${teamId}`);
     if (data && data.error) {
-      container.innerHTML = '<div class="cart-empty"><p>Couldn\'t load this collection right now. Please try again.</p></div>';
+      container.innerHTML = '<div class="cart-empty"><p>Couldn\'t load team jerseys right now.</p></div>';
       return;
     }
     const jerseys = Array.isArray(data) ? data : [];
@@ -637,19 +621,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     headerTitle.innerHTML = `${jerseys[0].team_name} <span class="fancy-italic">Collection</span>`;
 
-    container.innerHTML = jerseys.map(jersey => `
-      <div class="jersey-card" data-id="${jersey.id}">
-        ${renderJerseyMedia(jersey)}
-        <div class="info">
-          <h4>${jersey.name}</h4>
-          <span class="team-label">${jersey.team_name}</span>
-          <div class="card-footer">
-            ${renderPriceBlock(jersey, jersey.version_fan || 20, jersey.version_retro || 25)}
-            <span class="view-details-btn">View Edition</span>
-          </div>
-        </div>
-      </div>
-    `).join('');
+    container.innerHTML = jerseys.map(jersey => renderJerseyCardHtml(jersey)).join('');
 
     container.querySelectorAll('.jersey-card').forEach(card => {
       card.addEventListener('click', () => {
@@ -2398,6 +2370,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const cat = btn.getAttribute('data-category');
         state.activeCategory = cat;
         loadCatalogJerseys(cat);
+      });
+    });
+
+    document.querySelectorAll('#home-filter-bar .cat-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#home-filter-bar .cat-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const filter = btn.getAttribute('data-filter') || 'all';
+        loadFeaturedJerseys(filter);
       });
     });
   }

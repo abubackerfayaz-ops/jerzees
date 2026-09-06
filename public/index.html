@@ -674,11 +674,11 @@
 
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="/app.js?v=4.0.0"></script>
+  <script src="/js/app.js?v=5.0.0"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js?v=4.0.0').then((reg) => {
+        navigator.serviceWorker.register('/sw.js?v=5.0.0').then((reg) => {
           reg.update();
         }).catch(()=>{});
 
