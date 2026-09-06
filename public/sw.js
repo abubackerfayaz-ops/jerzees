@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jrzees-v5.1.8';
+const CACHE_NAME = 'jrzees-v5.2.0';
 
 // Install — skip waiting, take control immediately
 self.addEventListener('install', (e) => {
