@@ -204,8 +204,9 @@ header.scrolled {
   transition: var(--transition);
 }
 .header-logo-img {
-  height: 28px;
-  width: auto;
+  height: 28px !important;
+  max-height: 28px !important;
+  width: auto !important;
   object-fit: contain;
   filter: brightness(0) invert(1);
 }

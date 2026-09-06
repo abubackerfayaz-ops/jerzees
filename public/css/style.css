@@ -203,6 +203,13 @@ header.scrolled {
   align-items: center;
   transition: var(--transition);
 }
+.header-logo-img {
+  height: 28px !important;
+  max-height: 28px !important;
+  width: auto !important;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
 .logo-cyber-text {
   font-family: var(--font-cyber);
   font-weight: 900;
