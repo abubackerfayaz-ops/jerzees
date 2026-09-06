@@ -708,8 +708,8 @@ document.addEventListener('DOMContentLoaded', () => {
       ` : '';
 
       container.innerHTML = `
-        <div>
-          <div class="detail-carousel" id="detail-carousel">
+        <div class="detail-carousel-column">
+          <div class="detail-carousel detail-image" id="detail-carousel">
             <div class="detail-carousel-track" id="detail-carousel-track">
               ${carouselImgs}${svgFallback}
             </div>
