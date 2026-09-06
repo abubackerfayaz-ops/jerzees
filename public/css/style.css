@@ -204,16 +204,16 @@ header.scrolled {
   transition: var(--transition);
 }
 .header-logo-img {
-  height: 42px;
-  max-height: 46px;
+  height: 56px;
+  max-height: 58px;
   width: auto;
   object-fit: contain;
   display: block;
-  transition: transform 0.2s ease, filter 0.2s ease;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), filter 0.25s ease;
 }
 .logo:hover .header-logo-img {
-  transform: scale(1.05);
-  filter: drop-shadow(0 0 12px rgba(179, 240, 0, 0.45));
+  transform: scale(1.08);
+  filter: drop-shadow(0 0 14px rgba(179, 240, 0, 0.5));
 }
 .logo-cyber-text {
   font-family: var(--font-cyber);
@@ -1751,6 +1751,7 @@ footer::before {
   .stat-item:nth-child(3)::after { display: block; }
 }
 @media (max-width: 768px) {
+  .header-logo-img { height: 46px; max-height: 48px; }
   nav { gap: 20px; }
   nav a { display: none; }
   nav a[data-page="cart"] { display: flex; }
