@@ -204,11 +204,16 @@ header.scrolled {
   transition: var(--transition);
 }
 .header-logo-img {
-  height: 28px !important;
-  max-height: 28px !important;
-  width: auto !important;
+  height: 42px;
+  max-height: 46px;
+  width: auto;
   object-fit: contain;
-  filter: brightness(0) invert(1);
+  display: block;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+.logo:hover .header-logo-img {
+  transform: scale(1.05);
+  filter: drop-shadow(0 0 12px rgba(179, 240, 0, 0.45));
 }
 .logo-cyber-text {
   font-family: var(--font-cyber);
@@ -428,19 +433,24 @@ nav a.active { color: var(--white); }
 /* Slanted Massive Cyber Heading */
 .hero-heading {
   font-family: var(--font-cyber);
-  font-size: clamp(68px, 10.5vw, 155px);
+  font-size: clamp(64px, 9.8vw, 150px);
   font-weight: 900;
   font-style: italic;
-  line-height: 0.88;
+  line-height: 0.96;
   text-transform: uppercase;
-  letter-spacing: -2px;
+  letter-spacing: -1px;
   margin-bottom: 36px;
   position: relative;
   z-index: 2;
+  padding-left: 8px;
+  padding-right: 14px;
+  padding-bottom: 6px;
+  overflow: visible;
 }
 .hero-heading .line-white {
   color: #ffffff;
   display: block;
+  padding-bottom: 4px;
 }
 .hero-heading .line-green {
   color: var(--green);

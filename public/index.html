@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JRZEES | ELITE FOOTBALL CULTURE</title>
   <meta name="description" content="The world's premier source for elite football culture, verified authentic matchwear and museum-grade archive kits. Global shipping.">
-  <link rel="stylesheet" href="/style.css?v=5.0.2">
+  <link rel="stylesheet" href="/style.css?v=5.0.5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Barlow:wght@300;400;500;600;700&family=Montserrat:ital,wght@0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Orbitron:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -39,8 +39,11 @@
   <!-- Header -->
   <header id="site-header">
     <div class="header-inner">
-      <a href="#" class="logo logo-cyber" data-page="home">
-        <span class="logo-cyber-text">5AZ<span class="logo-dot">.</span></span>
+      <a href="#" class="logo logo-cyber" data-page="home" aria-label="JRZEES">
+        <picture>
+          <source srcset="/images/jrzees_logo.webp" type="image/webp">
+          <img src="/images/jrzees_logo.png" alt="JRZEES" class="header-logo-img" />
+        </picture>
       </a>
 
       <div class="hamburger" id="hamburger-btn">
@@ -556,8 +559,8 @@
       <div class="footer-grid">
         <div class="footer-brand">
           <picture>
-            <source srcset="/jrzees_logo.webp" type="image/webp">
-            <img src="/jrzees_logo.png" alt="JRZEES Football Kits" class="logo-footer-img" />
+            <source srcset="/images/jrzees_logo.webp" type="image/webp">
+            <img src="/images/jrzees_logo.png" alt="JRZEES Football Kits" class="logo-footer-img" />
           </picture>
           <p>The premier destination for elite football culture and museum-grade archive kits. Every jersey tells a story.</p>
           <div class="footer-social">
@@ -684,7 +687,7 @@
 
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="/js/app.js?v=5.0.0"></script>
+  <script src="/js/app.js?v=5.0.5"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
