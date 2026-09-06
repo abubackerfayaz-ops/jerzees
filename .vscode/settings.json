@@ -1,0 +1,4 @@
+{
+  "task.autoDetect": "on",
+  "task.runOn": "folderOpen"
+}

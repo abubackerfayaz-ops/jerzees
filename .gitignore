@@ -1,0 +1,31 @@
+node_modules/
+.env
+data/
+tmp_images/
+*.log
+*.zip
+
+# Helper/diagnostic scripts
+check_pg_schema.js
+scrape_yupoo.js
+sync_sqlite_to_pg.js
+migrate_to_sqlite.js
+reorder_*.js
+analyze_*.js
+debug_img.js
+check_img_sizes.js
+check_images.js
+check.js
+insert_log.json
+yupoo_albums.json
+yupoo_missing.json
+delete_placeholders.js
+app.js
+index.html
+style.css
+sw.js
+
+# Upload staging
+upload_v2/
+upload_v3/
+setup-github.ps1
