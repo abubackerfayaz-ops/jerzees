@@ -275,7 +275,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
       res.setHeader('Expires', '0');
     } else {
       // css/js/images/fonts — immutable for 1 year (use ?v= query bust on deploy)
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=86400');
     }
   }
 }));
