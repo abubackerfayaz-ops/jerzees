@@ -1789,35 +1789,7 @@ footer::before {
 @media (max-width: 1100px) {
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 40px; }
 }
-@media (max-width: 992px) {
-  #jersey-detail, .checkout-container { grid-template-columns: 1fr; gap: 32px; }
-  .detail-carousel { min-height: 380px; height: 440px; }
-  .hero-heading { font-size: clamp(60px,15vw,100px); }
-  .hero-bottom { flex-direction: column; align-items: flex-start; }
-  .stats-grid { grid-template-columns: repeat(2,1fr); gap: 40px 0; }
-  .stat-item:not(:last-child)::after { display: none; }
-  .stat-item:nth-child(1)::after,
-  .stat-item:nth-child(3)::after { display: block; }
-}
-@media (max-width: 768px) {
-  .header-logo-img { height: 46px; max-height: 48px; }
-  nav { gap: 20px; }
-  nav a { display: none; }
-  nav a[data-page="cart"] { display: flex; }
-  .hero-heading { font-size: clamp(50px,18vw,80px); }
-  .jersey-grid { grid-template-columns: repeat(2,1fr); gap: 10px; }
-  .teams-grid { grid-template-columns: repeat(2,1fr); }
-  .container { padding: 0 16px; }
-  header { padding: 0 16px; }
-  .footer-grid { grid-template-columns: 1fr; gap: 32px; }
-  .pricing-grid { flex-wrap: wrap; justify-content: flex-start; }
-  .pricing-item { flex: none; width: 50%; }
-  .stats-grid { grid-template-columns: 1fr 1fr; }
-}
-@media (max-width: 480px) {
-  .jersey-grid { grid-template-columns: 1fr; }
-  .hero-heading { font-size: clamp(46px,20vw,70px); }
-}
+
 
 /* ÔöÇÔöÇÔöÇ Auth Modal Overlay ÔöÇÔöÇÔöÇ */
 .overlay-modal {
@@ -2650,11 +2622,12 @@ footer::before {
     height: 11px !important;
   }
   .hero-heading {
-    font-size: clamp(52px, 16vw, 86px) !important;
-    line-height: 0.94 !important;
-    letter-spacing: -1px !important;
+    font-size: clamp(56px, 17.5vw, 92px) !important;
+    line-height: 0.92 !important;
+    letter-spacing: -1.5px !important;
     margin-bottom: 14px !important;
     padding: 0 !important;
+    width: 100% !important;
   }
   .hero-bottom {
     flex-direction: column !important;
@@ -3021,8 +2994,9 @@ footer::before {
     display: none !important;
   }
   .hero-heading {
-    font-size: clamp(44px, 15vw, 70px) !important;
-    line-height: 0.96 !important;
+    font-size: clamp(50px, 16.5vw, 76px) !important;
+    line-height: 0.93 !important;
+    letter-spacing: -1px !important;
   }
   .detail-image,
   .detail-carousel {
