@@ -1510,7 +1510,7 @@ app.get('/api/img-proxy', (req, res) => {
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
   const hits = (proxyHits.get(ip) || 0) + 1;
   proxyHits.set(ip, hits);
-  if (hits > 60) return res.status(429).send('rate limit exceeded');
+  if (hits > 300) return res.status(429).send('rate limit exceeded');
 
   let target;
   try { target = new URL(url); } catch { return res.status(400).send('invalid url'); }

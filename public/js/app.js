@@ -690,7 +690,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const svgFallback = `<div class="jersey-placeholder-container img-fallback" style="width:100%;height:100%;${isPlaceholder ? '' : 'display:none;'}">${getJerseySvg(jersey.team_slug, 'jersey-placeholder-svg')}</div>`;
 
       const carouselImgs = allImages.map((url, i) =>
-        `<img class="carousel-img" src="${proxyImg(url)}" alt="${jersey.name} - View ${i + 1}" loading="${i === 0 ? 'eager' : 'lazy'}" onerror="this.style.display='none';">`
+        `<div class="detail-carousel-slide"><img class="carousel-img" src="${proxyImg(url)}" alt="${jersey.name} - View ${i + 1}" loading="eager" /></div>`
       ).join('');
 
       const carouselDots = allImages.map((_, i) =>
