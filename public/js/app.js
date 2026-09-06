@@ -767,7 +767,7 @@ document.addEventListener('DOMContentLoaded', () => {
           ` : `
           <div class="name-printing" style="background: rgba(30, 40, 60, 0.4); border-color: rgba(229, 193, 88, 0.3);">
             <div class="name-printing-header">
-              <h4 class="selector-title" style="margin-bottom:0; color: var(--accent-gold, #e5c158);">⭐ Player Name Edition (Back)</h4>
+              <h4 class="selector-title" style="margin-bottom:0; color: var(--accent-gold, #e5c158);">Player Name Edition (Back)</h4>
               <span class="badge" style="background: #e5c158; color: #000; font-weight:700; padding: 3px 8px; border-radius: 4px; font-size:11px;">Included on Back</span>
             </div>
             <p class="fee-note" style="margin-top:6px;">This kit comes pre-printed with the official player name & number on the back.</p>
@@ -1091,7 +1091,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <span>${formatPrice(namePrintTotal)}</span>
         </div>` : ''}
         <div class="row">
-          <span>🚚 Shipping</span>
+          <span>Shipping</span>
           <span>${formatPrice(deliveryTotal)}</span>
         </div>
       </div>
@@ -1134,7 +1134,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     container.innerHTML = `
       <div class="checkout-summary-box" style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:16px; padding:24px; box-shadow:var(--card-shadow); margin-bottom:24px;">
-        <h4 style="margin:0 0 16px; font-size:1rem; color:var(--text-primary); border-bottom:1px solid var(--border-color); padding-bottom:12px;">🧾 Order Summary</h4>
+        <h4 style="margin:0 0 16px; font-size:1rem; color:var(--text-primary); border-bottom:1px solid var(--border-color); padding-bottom:12px;">Order Summary</h4>
         <div style="border-bottom:1px solid var(--border-color); padding-bottom:16px; margin-bottom:16px;">
           ${state.cart.map(item => `
             <div style="display:flex; justify-content:space-between; font-size:0.88rem; margin-bottom:10px; gap:8px;">
@@ -1150,11 +1150,11 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           ${namePrintCount > 0 ? `
           <div style="display:flex; justify-content:space-between; color:var(--text-secondary);">
-            <span>✏️ Custom Printing <small style="color:var(--accent-gold);">(${namePrintCount} × ${formatPrice(FEES.namePrinting)})</small></span>
+            <span>Custom Printing <small style="color:var(--accent-gold);">(${namePrintCount} × ${formatPrice(FEES.namePrinting)})</small></span>
             <span>${formatPrice(namePrintTotal)}</span>
           </div>` : ''}
           <div style="display:flex; justify-content:space-between; color:var(--text-secondary);">
-            <span>🚚 Shipping</span>
+            <span>Shipping</span>
             <span>${formatPrice(deliveryTotal)}</span>
           </div>
           <div style="display:flex; justify-content:space-between; font-size:1.2rem; font-weight:700; border-top:1px solid var(--border-color); padding-top:14px; margin-top:6px; color:var(--text-primary);">
@@ -1955,8 +1955,8 @@ document.addEventListener('DOMContentLoaded', () => {
           '<div class="confirmation-details" style="border:none;padding:0;margin:0;">' +
           '<div class="row"><span>Order #' + o.id + '</span><span style="color:var(--green);text-transform:uppercase;">' + o.status + '</span></div>' +
           (subtotal > 0 ? '<div class="row"><span>Jerseys</span><span>' + formatPrice(subtotal) + '</span></div>' : '') +
-          (printFee > 0 ? '<div class="row"><span>✏️ Custom Printing</span><span>' + formatPrice(printFee) + '</span></div>' : '') +
-          '<div class="row"><span>🚚 Shipping</span><span>' + formatPrice(shipFee) + '</span></div>' +
+          (printFee > 0 ? '<div class="row"><span>Custom Printing</span><span>' + formatPrice(printFee) + '</span></div>' : '') +
+          '<div class="row"><span>Shipping</span><span>' + formatPrice(shipFee) + '</span></div>' +
           '<div class="row" style="font-weight:700;"><span>Grand Total</span><span style="color:var(--accent-gold);">' + formatPrice(Number(o.total)) + '</span></div>' +
           '<div class="row" style="margin-bottom:0;"><span>' + new Date(o.created_at).toLocaleDateString() + '</span><span>' + o.item_count + ' item(s)</span></div>' +
           '</div></div>';
