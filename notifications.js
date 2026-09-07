@@ -1,6 +1,22 @@
 const https = require('https');
 const http = require('http');
 
+// Resend config (free — 100 emails/day)
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'JRZEES <orders@jrzees.com>';
+let resend = null;
+if (RESEND_API_KEY && RESEND_API_KEY.startsWith('re_')) {
+  try {
+    const { Resend } = require('resend');
+    resend = new Resend(RESEND_API_KEY);
+    console.log('[Email] Resend initialized ✓');
+  } catch (err) {
+    console.error('[Email] Resend init failed:', err.message);
+  }
+} else {
+  console.log('[Email] RESEND_API_KEY not set — customer emails disabled');
+}
+
 // Telegram config (free)
 const TG_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TG_CHAT_IDS = (process.env.TELEGRAM_CHAT_ID || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -416,4 +432,124 @@ async function notifyOrder(orderData) {
   console.log('[Notification] SMS attempted');
 }
 
-module.exports = { notifyOrder, formatNotificationMessage };
+function customerOrderEmailHtml(orderData) {
+  const { orderId, customerName, items = [], total, currencySymbol = '€', paymentMethod = 'COD', address, country } = orderData;
+
+  const itemRows = items.map((item, idx) => {
+    const f = itemFields(item, currencySymbol);
+    return `
+      <tr>
+        <td style="padding:12px 16px;border-bottom:1px solid #1a1a1a;font-size:14px;color:#e0e0e0;">
+          <strong style="color:#fff;">${f.name}</strong><br>
+          <span style="color:#888;">${f.version} · ${f.size} · Qty ${f.qty}</span>
+          ${f.player ? `<br><span style="color:#b3f000;">Name: ${f.player}</span>` : ''}
+        </td>
+        <td style="padding:12px 16px;border-bottom:1px solid #1a1a1a;text-align:right;font-family:'Courier New',monospace;font-size:14px;color:#fff;white-space:nowrap;">
+          ${f.price}
+        </td>
+      </tr>`;
+  }).join('');
+
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#030303;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:600px;margin:0 auto;background:#090909;border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;margin-top:20px;margin-bottom:20px;">
+
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#0a0a0a,#111);padding:32px 24px;text-align:center;border-bottom:2px solid #b3f000;">
+      <h1 style="margin:0;font-size:28px;font-weight:900;color:#fff;letter-spacing:2px;text-transform:uppercase;">JRZEES</h1>
+      <p style="margin:8px 0 0;color:#b3f000;font-size:12px;letter-spacing:3px;text-transform:uppercase;">Order Confirmed</p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:32px 24px;">
+      <p style="color:#e0e0e0;font-size:16px;margin:0 0 24px;">
+        Hey <strong style="color:#fff;">${customerName}</strong>,
+      </p>
+      <p style="color:#888;font-size:14px;line-height:1.6;margin:0 0 32px;">
+        Thanks for your order! We've received it and are getting it ready. Here are your order details:
+      </p>
+
+      <!-- Order ID -->
+      <div style="background:#111;border:1px solid rgba(179,240,0,0.2);border-radius:8px;padding:16px 20px;margin-bottom:24px;">
+        <span style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:2px;">Order ID</span><br>
+        <span style="color:#b3f000;font-family:'Courier New',monospace;font-size:20px;font-weight:bold;">ORD-${orderId}</span>
+      </div>
+
+      <!-- Items Table -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+        <thead>
+          <tr>
+            <th style="padding:8px 16px;text-align:left;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid #222;">Item</th>
+            <th style="padding:8px 16px;text-align:right;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid #222;">Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemRows}
+        </tbody>
+      </table>
+
+      <!-- Total -->
+      <div style="border-top:2px solid #222;padding-top:16px;margin-bottom:32px;">
+        <table style="width:100%;">
+          <tr>
+            <td style="color:#888;font-size:14px;padding:4px 0;">Payment Method</td>
+            <td style="text-align:right;color:#fff;font-size:14px;padding:4px 0;">${paymentMethod === 'COD' ? 'Cash on Delivery' : 'Online Payment'}</td>
+          </tr>
+          <tr>
+            <td style="color:#fff;font-size:20px;font-weight:bold;padding:12px 0 0;">Total</td>
+            <td style="text-align:right;color:#b3f000;font-size:20px;font-weight:bold;padding:12px 0 0;">${currencySymbol}${typeof total === 'number' ? total.toFixed(2) : total}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Shipping -->
+      <div style="background:#111;border-radius:8px;padding:20px;margin-bottom:24px;">
+        <span style="color:#888;font-size:11px;text-transform:uppercase;letter-spacing:2px;">Shipping To</span>
+        <p style="color:#e0e0e0;font-size:14px;margin:8px 0 0;line-height:1.5;">
+          ${customerName}<br>
+          ${address || ''}<br>
+          ${country || ''}
+        </p>
+      </div>
+
+      <p style="color:#888;font-size:13px;line-height:1.6;margin:0;">
+        We'll notify you when your order ships. If you have any questions, just reply to this email.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="padding:20px 24px;border-top:1px solid #1a1a1a;text-align:center;">
+      <p style="color:#444;font-size:11px;margin:0;letter-spacing:1px;text-transform:uppercase;">JRZEES Football Kits — Verified Authentic</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+async function sendCustomerEmail(orderData) {
+  if (!resend || !orderData.email) return false;
+
+  try {
+    const html = customerOrderEmailHtml(orderData);
+    const result = await resend.emails.send({
+      from: EMAIL_FROM,
+      to: orderData.email,
+      subject: `Order Confirmed — ORD-${orderData.orderId} | JRZEES`,
+      html,
+    });
+    if (result.data && result.data.id) {
+      console.log(`[Email] Customer confirmation sent to ${orderData.email} (id: ${result.data.id})`);
+      return true;
+    }
+    console.warn('[Email] Resend returned no id:', JSON.stringify(result));
+    return false;
+  } catch (err) {
+    console.error(`[Email] Failed to send to ${orderData.email}:`, err.message);
+    return false;
+  }
+}
+
+module.exports = { notifyOrder, formatNotificationMessage, sendCustomerEmail };

@@ -64,7 +64,7 @@ function ziinaRequest(method, endpoint, body) {
   });
 }
 
-const { notifyOrder } = require('./notifications');
+const { notifyOrder, sendCustomerEmail } = require('./notifications');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
@@ -1071,6 +1071,19 @@ app.post('/api/checkout', async (req, res) => {
         createdTime: new Date().toISOString(),
         items: notifItems
       }).catch(err => console.error('notifyOrder error:', err.message));
+
+      // Send confirmation email to customer
+      sendCustomerEmail({
+        orderId,
+        customerName: customer_name,
+        email,
+        address,
+        country: countryName,
+        total,
+        currencySymbol: currency_symbol || '€',
+        paymentMethod: pMethod,
+        items: notifItems,
+      }).catch(err => console.error('sendCustomerEmail error:', err.message));
     } catch (notifErr) {
       console.error('Checkout notification error:', notifErr.message);
     }
@@ -1182,6 +1195,17 @@ app.post('/api/orders', async (req, res) => {
         createdTime: new Date().toISOString(),
         items: notifItems
       });
+      sendCustomerEmail({
+        orderId,
+        customerName: customer_name,
+        email,
+        address,
+        country: countryName,
+        total,
+        currencySymbol: currency_symbol || '€',
+        paymentMethod: pMethod,
+        items: notifItems,
+      }).catch(err => console.error('sendCustomerEmail error:', err.message));
     } catch (notifErr) {
       console.error('Orders endpoint notification error:', notifErr.message);
     }
