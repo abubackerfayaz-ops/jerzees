@@ -1798,13 +1798,9 @@ async function ensureDb() {
   }
 }
 
-// Vercel serverless: wrap Express app as a handler function
-if (process.env.VERCEL) {
-  const serverless = require('serverless-http');
-  module.exports = serverless(app);
-} else {
-  // Render / local: export app and start listening
-  module.exports = app;
+module.exports = app;
+
+if (require.main === module || (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME)) {
   async function start() {
     await ensureDb();
     if (ziinaConfigured && ZIINA_WEBHOOK_URL) {

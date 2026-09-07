@@ -2378,7 +2378,6 @@ footer::before {
   max-height: 100%;
   object-fit: contain;
   display: block;
-  mix-blend-mode: multiply;
   user-select: none;
 }
 .detail-carousel-nav {
