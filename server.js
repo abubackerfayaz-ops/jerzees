@@ -1568,6 +1568,192 @@ app.get('/api/img-proxy', (req, res) => {
   proxy.on('error', err => { console.error('img-proxy err:', err.message); if (!res.headersSent) res.status(502).send('proxy error'); });
 });
 
+// ─── SEO: SITEMAP.XML ───────────────────────────────────────────────────────
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+
+    const jerseys = await db.all(
+      `SELECT j.id, j.name, j.slug, j.type, j.season, j.updated_at,
+              t.name as team_name, t.slug as team_slug
+       FROM jerseys j JOIN teams t ON j.team_id = t.id
+       ORDER BY j.id`
+    );
+
+    const teams = await db.all(
+      'SELECT id, name, slug FROM teams ORDER BY id'
+    );
+
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+
+    // Homepage
+    xml += `  <url><loc>https://www.jrzees.com/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n`;
+    xml += `  <url><loc>https://www.jrzees.com/shop</loc><changefreq>daily</changefreq><priority>0.9</priority></url>\n`;
+    xml += `  <url><loc>https://www.jrzees.com/retro</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
+    xml += `  <url><loc>https://www.jrzees.com/collections</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
+
+    // Club & national team pages
+    for (const team of teams) {
+      xml += `  <url><loc>https://www.jrzees.com/club/${team.slug}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
+    }
+
+    // Individual jersey pages
+    for (const j of jerseys) {
+      const loc = j.team_slug
+        ? `https://www.jrzees.com/jersey/${j.team_slug}/${j.slug || j.id}`
+        : `https://www.jrzees.com/jersey/${j.id}`;
+      const lastmod = j.updated_at ? new Date(j.updated_at).toISOString().split('T')[0] : '';
+      xml += `  <url><loc>${loc}</loc>`;
+      if (lastmod) xml += `<lastmod>${lastmod}</lastmod>`;
+      xml += `<changefreq>weekly</changefreq><priority>0.8</priority></url>\n`;
+    }
+
+    xml += '</urlset>';
+    res.send(xml);
+  } catch (err) {
+    console.error('Sitemap error:', err.message);
+    res.status(500).send('<?xml version="1.0"?><urlset/>');
+  }
+});
+
+// ─── SEO: ROBOTS.TXT ────────────────────────────────────────────────────────
+app.get('/robots.txt', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.send(`User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin
+
+Sitemap: https://www.jrzees.com/sitemap.xml
+`);
+});
+
+// ─── SEO: JERSEY DETAIL SSR (dynamic meta tags for crawlers) ────────────────
+app.get('/jersey/:teamSlug/:jerseySlug', async (req, res) => {
+  try {
+    const { teamSlug, jerseySlug } = req.params;
+    const jersey = await db.get(
+      `SELECT j.*, t.name as team_name, t.slug as team_slug,
+              (SELECT MIN(price) FROM variants WHERE jersey_id = j.id AND active = 1) as price_from,
+              (SELECT MAX(price) FROM variants WHERE jersey_id = j.id AND active = 1) as price_to
+       FROM jerseys j JOIN teams t ON j.team_id = t.id
+       WHERE t.slug = $1 AND (j.slug = $2 OR j.id::text = $2)`,
+      [teamSlug, jerseySlug]
+    );
+
+    if (!jersey) {
+      return res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    }
+
+    const images = await db.all(
+      'SELECT image_url FROM jersey_images WHERE jersey_id = $1 ORDER BY sort_order',
+      [jersey.id]
+    );
+
+    const imageUrl = images.length ? images[0].image_url : 'https://www.jrzees.com/og-image.png';
+    const pageTitle = `${jersey.name} | ${jersey.team_name} | Buy Online | JRZEES`;
+    const pageDesc = `Buy ${jersey.name} — ${jersey.team_name} ${jersey.season || ''} football jersey. Fan, Player & Retro fits available. Global shipping. Shop now at JRZEES.`;
+    const canonicalUrl = `https://www.jrzees.com/jersey/${teamSlug}/${jerseySlug}`;
+    const priceFrom = jersey.price_from ? Number(jersey.price_from).toFixed(2) : null;
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${pageTitle}</title>
+  <meta name="description" content="${pageDesc}">
+  <meta name="keywords" content="${jersey.name}, ${jersey.team_name}, football jersey, ${jersey.season || ''}, soccer kit, buy online">
+  <link rel="canonical" href="${canonicalUrl}">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="product">
+  <meta property="og:title" content="${pageTitle}">
+  <meta property="og:description" content="${pageDesc}">
+  <meta property="og:url" content="${canonicalUrl}">
+  <meta property="og:image" content="${imageUrl}">
+  <meta property="og:image:width" content="800">
+  <meta property="og:image:height" content="800">
+  <meta property="og:site_name" content="JRZEES">
+  ${priceFrom ? `<meta property="product:price:amount" content="${priceFrom}">
+  <meta property="product:price:currency" content="EUR">` : ''}
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${pageTitle}">
+  <meta name="twitter:description" content="${pageDesc}">
+  <meta name="twitter:image" content="${imageUrl}">
+
+  <!-- JSON-LD: Product -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "${jersey.name}",
+    "description": "${pageDesc.replace(/"/g, '\\"')}",
+    "image": "${imageUrl}",
+    "brand": {
+      "@type": "Brand",
+      "name": "${jersey.team_name}"
+    },
+    "category": "${jersey.type || 'Football Jersey'}",
+    "url": "${canonicalUrl}",
+    ${priceFrom ? `"offers": {
+      "@type": "Offer",
+      "price": "${priceFrom}",
+      "priceCurrency": "EUR",
+      "availability": "https://schema.org/InStock",
+      "url": "${canonicalUrl}"
+    },` : ''}
+    "breadcrumb": {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.jrzees.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Shop", "item": "https://www.jrzees.com/shop" },
+        { "@type": "ListItem", "position": 3, "name": "${jersey.team_name}", "item": "https://www.jrzees.com/club/${teamSlug}" },
+        { "@type": "ListItem", "position": 4, "name": "${jersey.name}" }
+      ]
+    }
+  }
+  </script>
+
+  <!-- JSON-LD: BreadcrumbList -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.jrzees.com/" },
+      { "@type": "ListItem", "position": 2, "name": "Shop", "item": "https://www.jrzees.com/shop" },
+      { "@type": "ListItem", "position": 3, "name": "${jersey.team_name}", "item": "https://www.jrzees.com/club/${teamSlug}" },
+      { "@type": "ListItem", "position": 4, "name": "${jersey.name}" }
+    ]
+  }
+  </script>
+
+  <link rel="stylesheet" href="/css/style.css?v=5.3.5">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Barlow:wght@300;400;500;600;700&family=Montserrat:ital,wght@0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Orbitron:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app-root"></div>
+  <script>window.__SSR_JERSEY__ = ${JSON.stringify({ id: jersey.id, slug: jersey.slug, teamSlug }).replace(/</g, '\\u003c')};</script>
+  <script src="/js/app.js?v=5.3.5"></script>
+</body>
+</html>`;
+
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(html);
+  } catch (err) {
+    console.error('SSR jersey error:', err.message);
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
+});
+
 // ─── SPA FALLBACK & ERROR HANDLER ─────────────────────────────────────────
 
 // Version endpoint to easily verify live deployment

@@ -3,15 +3,69 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JRZEES | ELITE FOOTBALL CULTURE</title>
-  <meta name="description" content="The world's premier source for elite football culture, verified authentic matchwear and museum-grade archive kits. Global shipping.">
-  <link rel="stylesheet" href="/css/style.css?v=5.3.4">
+  <title>JRZEES | Premium Football Jerseys & Archive Kits — Global Shipping</title>
+  <meta name="description" content="Shop premium football jerseys, archive kits & matchwear from top clubs and nations. Verified authentic. Fan, Player & Retro fits. Worldwide delivery.">
+  <meta name="keywords" content="football jerseys, soccer kits, archive kits, matchwear, replica jerseys, club football, national team kits, retro football shirts">
+  <link rel="canonical" href="https://www.jrzees.com/">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="JRZEES | Premium Football Jerseys & Archive Kits">
+  <meta property="og:description" content="Shop premium football jerseys, archive kits & matchwear from top clubs and nations. Verified authentic. Worldwide delivery.">
+  <meta property="og:url" content="https://www.jrzees.com/">
+  <meta property="og:site_name" content="JRZEES">
+  <meta property="og:image" content="https://www.jrzees.com/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="JRZEES | Premium Football Jerseys & Archive Kits">
+  <meta name="twitter:description" content="Shop premium football jerseys, archive kits & matchwear. Verified authentic. Worldwide delivery.">
+  <meta name="twitter:image" content="https://www.jrzees.com/og-image.png">
+
+  <!-- JSON-LD: Organization -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "JRZEES",
+    "url": "https://www.jrzees.com",
+    "logo": "https://www.jrzees.com/logo.png",
+    "description": "Premium football jerseys, archive kits and matchwear from top clubs and nations worldwide.",
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "customer service",
+      "availableLanguage": "English"
+    }
+  }
+  </script>
+
+  <!-- JSON-LD: WebSite with SearchAction -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "JRZEES",
+    "url": "https://www.jrzees.com",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://www.jrzees.com/?search={search_term_string}"
+      },
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+
+  <link rel="stylesheet" href="/css/style.css?v=5.3.5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Barlow:wght@300;400;500;600;700&family=Montserrat:ital,wght@0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Orbitron:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <script>
     if ('serviceWorker' in navigator) {
-      const SW_VER = '5.3.4';
+      const SW_VER = '5.3.5';
       if (localStorage.getItem('app_sw_version') !== SW_VER) {
         localStorage.setItem('app_sw_version', SW_VER);
         if ('caches' in window) {
@@ -194,10 +248,6 @@
               <span class="stat-number" data-target="15" data-suffix="+">15+</span>
               <div class="stat-label">Nations Delivered</div>
             </div>
-            <div class="stat-item">
-              <span class="stat-number" id="stat-starting-price">€12.50</span>
-              <div class="stat-label">Starting At</div>
-            </div>
           </div>
         </div>
       </section>
@@ -224,7 +274,7 @@
           <div class="pricing-grid">
             <div class="pricing-item">
               <span class="pricing-badge">FAN FIT</span>
-              <div class="pricing-value" id="price-fan">€12.50</div>
+              <div class="pricing-value" id="price-fan">€20.00</div>
               <div class="pricing-label">Official Supporter Fit</div>
             </div>
             <div class="pricing-item">
@@ -688,11 +738,11 @@
 
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="/js/app.js?v=5.3.4"></script>
+  <script src="/js/app.js?v=5.3.5"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js?v=5.3.4').then((reg) => {
+        navigator.serviceWorker.register('/sw.js?v=5.3.5').then((reg) => {
           reg.update();
         }).catch(()=>{});
 
