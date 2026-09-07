@@ -1787,27 +1787,46 @@ app.use((err, req, res, next) => {
 
 // ─── START ───────────────────────────────────────────────────────────────────
 
-async function start() {
+const isVercel = !!process.env.VERCEL;
+
+// Lazy DB init — runs once, not on every serverless invocation
+let dbInitialized = false;
+async function ensureDb() {
+  if (dbInitialized) return;
   try {
     await db.initialize();
+    dbInitialized = true;
+    console.log('[DB] Initialized successfully');
   } catch (err) {
-    console.error('Database connection failed:', err.message);
-    console.error('Server will start but database features will be unavailable.');
+    console.error('[DB] Init failed:', err.message);
   }
-  if (ziinaConfigured && ZIINA_WEBHOOK_URL) {
-    try {
-      await ziinaRequest('POST', '/webhook', {
-        url: ZIINA_WEBHOOK_URL,
-        ...(ZIINA_WEBHOOK_SECRET ? { secret: ZIINA_WEBHOOK_SECRET } : {}),
-      });
-      console.log(`Ziina webhook registered at ${ZIINA_WEBHOOK_URL}`);
-    } catch (err) {
-      console.error('Failed to register Ziina webhook:', err.message);
-    }
-  }
-  app.listen(PORT, () => {
-    console.log(`Kickoff Jerseys ecommerce running on http://localhost:${PORT}`);
-  });
 }
 
-start().catch(err => { console.error(err); process.exit(1); });
+if (isVercel) {
+  // Vercel serverless: lazy-init DB on first request, export app
+  app.use(async (req, res, next) => {
+    if (!dbInitialized) await ensureDb();
+    next();
+  });
+  module.exports = app;
+} else {
+  // Render / local: run init then listen
+  async function start() {
+    await ensureDb();
+    if (ziinaConfigured && ZIINA_WEBHOOK_URL) {
+      try {
+        await ziinaRequest('POST', '/webhook', {
+          url: ZIINA_WEBHOOK_URL,
+          ...(ZIINA_WEBHOOK_SECRET ? { secret: ZIINA_WEBHOOK_SECRET } : {}),
+        });
+        console.log(`Ziina webhook registered at ${ZIINA_WEBHOOK_URL}`);
+      } catch (err) {
+        console.error('Failed to register Ziina webhook:', err.message);
+      }
+    }
+    app.listen(PORT, () => {
+      console.log(`Kickoff Jerseys ecommerce running on http://localhost:${PORT}`);
+    });
+  }
+  start().catch(err => { console.error(err); process.exit(1); });
+}
