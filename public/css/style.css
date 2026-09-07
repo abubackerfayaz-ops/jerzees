@@ -2714,8 +2714,8 @@ footer::before {
   }
   .jersey-card {
     border-radius: 10px !important;
-    overflow: hidden !important;
     padding: 8px !important;
+    overflow: visible !important;
   }
   .jersey-card-image-wrapper {
     height: 145px !important;
@@ -2755,18 +2755,22 @@ footer::before {
   }
   .jersey-card .card-footer {
     gap: 6px !important;
+    padding-right: 2px !important;
   }
   .card-action-btn {
     width: 32px !important;
+    min-width: 32px !important;
     height: 32px !important;
     flex-shrink: 0 !important;
   }
   .jersey-card .card-price-group {
     min-width: 0 !important;
     flex: 1 !important;
+    overflow: hidden !important;
   }
   .jersey-card .price {
     font-size: 1rem !important;
+    white-space: nowrap !important;
   }
   .jersey-card .price-original {
     font-size: 0.65rem !important;
