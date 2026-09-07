@@ -30,3 +30,11 @@ upload_v2/
 upload_v3/
 setup-github.ps1
 .git-old/
+
+# Scratch/test files
+scratch/
+scratch_*.js
+fix_broken_images.js
+cleanup_broken_images.js
+cleanup_no_images.js
+broken_report.json
