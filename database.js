@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
-const { DatabaseSync } = require('node:sqlite');
+let DatabaseSync;
+try { DatabaseSync = require('node:sqlite').DatabaseSync; } catch (_) { DatabaseSync = null; }
 const path = require('path');
 const fs = require('fs');
 
