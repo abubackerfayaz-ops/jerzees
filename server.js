@@ -90,7 +90,19 @@ if (process.env.ADMIN_PASSWORD && (process.env.ADMIN_PASSWORD.length < 8 || proc
 // ─── SECURITY & BODY PARSING MIDDLEWARE ─────────────────────────────────────
 
 app.use(cors({
-  origin: process.env.BASE_URL || '*',
+  origin: function(origin, cb) {
+    const allowed = [
+      process.env.BASE_URL,
+      'https://www.jrzees.com',
+      'https://jrzees.pages.dev',
+      'https://jerzees.pages.dev',
+    ].filter(Boolean);
+    if (!origin || allowed.some(a => origin.startsWith(a))) {
+      cb(null, true);
+    } else {
+      cb(null, true); // allow all for now — tighten in production
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id'],
   credentials: true,

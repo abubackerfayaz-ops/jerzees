@@ -7,7 +7,7 @@ const ALLOWED_HOSTS = [
 ];
 
 export default {
-  async fetch(request) {
+  async fetch(request, env, context) {
     const url = new URL(request.url);
     const target = url.searchParams.get('url');
 

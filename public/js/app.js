@@ -78,6 +78,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  const API_BASE = 'https://jerzees-7awn.onrender.com';
+  const IMG_PROXY = 'https://img.jrzees.com';
+
   async function apiPost(url, data, useAuth = true) {
     const method = typeof useAuth === 'string' ? useAuth : 'POST';
     const auth = typeof useAuth === 'string' ? true : useAuth;
@@ -85,7 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const opts = { method, headers };
     if (method !== 'GET' && method !== 'DELETE') opts.body = JSON.stringify(data);
     try {
-      const res = await fetch(url, opts);
+      const fullUrl = url.startsWith('/api/') ? API_BASE + url : url;
+      const res = await fetch(fullUrl, opts);
       return res.json();
     } catch (e) {
       return { error: 'Network error - ' + e.message };
@@ -95,7 +99,8 @@ document.addEventListener('DOMContentLoaded', () => {
   async function apiGet(url, useAuth = true) {
     const headers = useAuth ? getAuthHeaders() : {};
     try {
-      const res = await fetch(url, { headers });
+      const fullUrl = url.startsWith('/api/') ? API_BASE + url : url;
+      const res = await fetch(fullUrl, { headers });
       return res.json();
     } catch (e) {
       return { error: 'Network error - ' + e.message };
@@ -193,16 +198,16 @@ document.addEventListener('DOMContentLoaded', () => {
   async function syncCartToServer() {
     if (!state.token || !state.cart.length) return;
     try {
-      await fetch('/api/cart/clear', { method: 'POST', headers: getAuthHeaders() });
-      const jerseysRes = await fetch('/api/jerseys');
+      await fetch(API_BASE + '/api/cart/clear', { method: 'POST', headers: getAuthHeaders() });
+      const jerseysRes = await fetch(API_BASE + '/api/jerseys');
       const allJerseys = await jerseysRes.json();
       for (const item of state.cart) {
         const jersey = allJerseys.find(j => j.id == item.jersey_id);
         if (!jersey) continue;
-        const variantRes = await fetch(`/api/variants?jersey_id=${item.jersey_id}&version=${item.version}&size=${item.size}`);
+        const variantRes = await fetch(API_BASE + `/api/variants?jersey_id=${item.jersey_id}&version=${item.version}&size=${item.size}`);
         const variants = await variantRes.json();
         if (variants.length) {
-          await fetch('/api/cart', {
+          await fetch(API_BASE + '/api/cart', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
             body: JSON.stringify({ variant_id: variants[0].id, name_text: item.name_text || '', quantity: item.quantity })
@@ -337,9 +342,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Route external image URLs through our server proxy to avoid hotlink blocks
   function proxyImg(url) {
     if (!url) return '';
-    // Already a relative or local URL — serve directly
     if (url.startsWith('/') || url.startsWith('data:')) return url;
-    return '/api/img-proxy?url=' + encodeURIComponent(url);
+    return IMG_PROXY + '/?url=' + encodeURIComponent(url);
   }
 
   // Generate Image Wrapper — pre-renders both img + SVG fallback.
@@ -1167,7 +1171,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Fetch Ziina config to show or hide the Online Payment card
     if (state.ziinaConfigured === undefined) {
-      fetch('/api/ziina-config')
+      fetch(API_BASE + '/api/ziina-config')
         .then(res => res.json())
         .then(data => {
           state.ziinaConfigured = data.configured;
@@ -1251,7 +1255,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       if (paymentMethod === 'ziina') {
-        const piRes = await fetch('/api/create-payment-intent', {
+        const piRes = await fetch(API_BASE + '/api/create-payment-intent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-session-id': state.sessionId, ...getAuthHeaders() },
           body: JSON.stringify(orderData)
@@ -1272,7 +1276,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Direct order placement (COD)
-      const response = await fetch('/api/checkout', {
+      const response = await fetch(API_BASE + '/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-session-id': state.sessionId, ...getAuthHeaders() },
         body: JSON.stringify(orderData)
@@ -1898,7 +1902,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const results = document.getElementById('search-results');
     if (q.length < 2) { results.innerHTML = ''; return; }
     try {
-      const res = await fetch('/api/jerseys?search=' + encodeURIComponent(q));
+      const res = await fetch(API_BASE + '/api/jerseys?search=' + encodeURIComponent(q));
       const jerseys = await res.json();
       if (!jerseys.length) {
         results.innerHTML = '<div class="search-empty">No results found for "' + q + '"</div>';
@@ -2291,7 +2295,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function initCurrencySystem() {
     try {
-      const res = await fetch('/api/exchange-rates');
+      const res = await fetch(API_BASE + '/api/exchange-rates');
       const data = await res.json();
       if (data && data.rates) {
         state.exchangeRates = data.rates;
