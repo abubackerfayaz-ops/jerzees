@@ -1785,28 +1785,24 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: 'Internal server error' });
 });
 
-// ─── START ───────────────────────────────────────────────────────────────────
+// ─── EXPORT & START ──────────────────────────────────────────────────────────
 
-const isVercel = !!process.env.VERCEL;
-
-// Lazy DB init — runs once, not on every serverless invocation
 let dbInitialized = false;
 async function ensureDb() {
   if (dbInitialized) return;
   try {
     await db.initialize();
     dbInitialized = true;
-    console.log('[DB] Initialized successfully');
   } catch (err) {
     console.error('[DB] Init failed:', err.message);
   }
 }
 
-if (isVercel) {
-  // Vercel serverless: skip full DB init (tables already exist), export app
-  module.exports = app;
-} else {
-  // Render / local: run init then listen
+// Always export for Vercel serverless
+module.exports = app;
+
+// Only listen on non-Vercel (Render / local)
+if (!process.env.VERCEL) {
   async function start() {
     await ensureDb();
     if (ziinaConfigured && ZIINA_WEBHOOK_URL) {
