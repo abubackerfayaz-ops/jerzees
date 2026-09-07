@@ -2,5 +2,9 @@ name = "jerzees-img-proxy"
 main = "worker.js"
 compatibility_date = "2024-01-01"
 
+routes = [
+  { pattern = "img.jrzees.com/*", zone_name = "jrzees.com" }
+]
+
 [observability]
 enabled = true
