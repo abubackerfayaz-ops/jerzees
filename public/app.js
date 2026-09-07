@@ -2346,6 +2346,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (playerEl) playerEl.textContent = formatPrice(25);
     if (retroEl) retroEl.textContent = formatPrice(25);
     if (delivEl) delivEl.textContent = formatPrice(5);
+    const statPrice = document.getElementById('stat-starting-price');
+    if (statPrice) statPrice.textContent = formatPrice(12.5);
   }
 
   function initCategoryFilters() {
