@@ -2348,6 +2348,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (delivEl) delivEl.textContent = formatPrice(5);
     const statPrice = document.getElementById('stat-starting-price');
     if (statPrice) statPrice.textContent = formatPrice(12.5);
+    const customEl = document.getElementById('price-custom');
+    if (customEl) customEl.textContent = '+' + formatPrice(5);
   }
 
   function initCategoryFilters() {
