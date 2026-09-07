@@ -1803,11 +1803,7 @@ async function ensureDb() {
 }
 
 if (isVercel) {
-  // Vercel serverless: lazy-init DB on first request, export app
-  app.use(async (req, res, next) => {
-    if (!dbInitialized) await ensureDb();
-    next();
-  });
+  // Vercel serverless: skip full DB init (tables already exist), export app
   module.exports = app;
 } else {
   // Render / local: run init then listen
