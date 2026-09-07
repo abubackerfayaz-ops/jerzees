@@ -1798,11 +1798,13 @@ async function ensureDb() {
   }
 }
 
-// Always export for Vercel serverless
-module.exports = app;
-
-// Only listen on non-Vercel (Render / local)
-if (!process.env.VERCEL) {
+// Vercel serverless: wrap Express app as a handler function
+if (process.env.VERCEL) {
+  const serverless = require('serverless-http');
+  module.exports = serverless(app);
+} else {
+  // Render / local: export app and start listening
+  module.exports = app;
   async function start() {
     await ensureDb();
     if (ziinaConfigured && ZIINA_WEBHOOK_URL) {
