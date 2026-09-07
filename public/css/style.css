@@ -895,7 +895,6 @@ nav a.active { color: var(--white); }
   object-position: center center;
   display: block;
   transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
-  mix-blend-mode: multiply;
 }
 .jersey-card:hover .jersey-card-image-wrapper img {
   transform: scale(1.05);
@@ -1189,7 +1188,6 @@ nav a.active { color: var(--white); }
   object-fit: contain;
   display: block;
   transition: transform 0.7s ease;
-  mix-blend-mode: multiply;
 }
 .detail-image:hover img { transform: scale(1.03); }
 .detail-image .zoom-overlay {
@@ -2380,7 +2378,6 @@ footer::before {
   max-height: 100%;
   object-fit: contain;
   display: block;
-  mix-blend-mode: multiply;
   mix-blend-mode: multiply;
   user-select: none;
 }
