@@ -100,7 +100,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const headers = useAuth ? getAuthHeaders() : {};
     try {
       const fullUrl = url.startsWith('/api/') ? API_BASE + url : url;
-      const res = await fetch(fullUrl, { headers });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 20000);
+      const res = await fetch(fullUrl, { headers, signal: controller.signal });
+      clearTimeout(timer);
       return res.json();
     } catch (e) {
       return { error: 'Network error - ' + e.message };
@@ -466,7 +469,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const titleEl = document.getElementById('catalog-title');
     const filterBar = document.getElementById('category-filter-bar');
     if (!container) return;
-    container.innerHTML = '<div class="cart-empty"><p>Loading kits...</p></div>';
+
+    const cacheKey = searchTerm ? 'search_' + searchTerm : 'catalog_' + (filter || 'all');
+    const cached = getCachedJerseys(cacheKey);
+
+    if (cached && cached.length) {
+      renderJerseyGrid(container, cached);
+    } else {
+      container.innerHTML = '<div class="cart-empty"><p>Loading kits...</p></div>';
+    }
 
     if (searchTerm) {
       if (filterBar) filterBar.style.display = 'none';
@@ -507,13 +518,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let jerseys = await apiFetch(endpoint);
     if (jerseys && jerseys.error) {
-      container.innerHTML = '<div class="cart-empty"><p>Couldn\'t load jerseys right now. Please check your connection and try again.</p></div>';
+      if (!cached) container.innerHTML = '<div class="cart-empty"><p>Couldn\'t load jerseys right now. Please check your connection and try again.</p></div>';
       return;
     }
     if (!Array.isArray(jerseys)) jerseys = [];
 
     if (!jerseys.length && searchTerm) {
-      container.innerHTML = `<div class="cart-empty"><p>No results found for "<strong>${searchTerm}</strong>". Try a different search.</p></div>`;
+      if (!cached) container.innerHTML = `<div class="cart-empty"><p>No results found for "<strong>${searchTerm}</strong>". Try a different search.</p></div>`;
       return;
     }
 
@@ -527,46 +538,64 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    container.innerHTML = jerseys.map(jersey => renderJerseyCardHtml(jersey)).join('');
+    if (jerseys.length) {
+      cacheJerseys(cacheKey, jerseys);
+      renderJerseyGrid(container, jerseys);
+    } else if (!cached) {
+      container.innerHTML = '<div class="cart-empty"><p>No kits found.</p></div>';
+    }
+  }
 
+  // Load Featured Jerseys on Homepage
+  // ─── Jersey Cache (instant load from localStorage) ──────────────────────────
+  function cacheJerseys(key, data) {
+    try { localStorage.setItem('jrzees_cache_' + key, JSON.stringify(data)); } catch(e) {}
+  }
+  function getCachedJerseys(key) {
+    try { return JSON.parse(localStorage.getItem('jrzees_cache_' + key)) || null; } catch(e) { return null; }
+  }
+  function renderJerseyGrid(container, jerseys) {
+    container.innerHTML = jerseys.map(jersey => renderJerseyCardHtml(jersey)).join('');
     container.querySelectorAll('.jersey-card').forEach(card => {
       card.addEventListener('click', () => {
-        const id = card.getAttribute('data-id');
-        navigateTo('detail', { jerseyId: id });
+        navigateTo('detail', { jerseyId: card.getAttribute('data-id') });
       });
     });
   }
 
-  // Load Featured Jerseys on Homepage
   async function loadFeaturedJerseys(category = 'all') {
     const container = document.getElementById('featured-jerseys');
     if (!container) return;
-    container.innerHTML = '<div class="cart-empty"><p>Loading exclusive products...</p></div>';
-    
+
+    const cacheKey = 'featured_' + category;
+    const cached = getCachedJerseys(cacheKey);
+
+    // Show cached instantly — no "Loading" spinner
+    if (cached && cached.length) {
+      renderJerseyGrid(container, cached);
+    } else {
+      container.innerHTML = '<div class="cart-empty"><p>Loading exclusive products...</p></div>';
+    }
+
+    // Fetch fresh in background
     let url = '/api/jerseys?featured=1';
     if (category === 'new') url = '/api/jerseys?sort=new&limit=8';
     else if (category === 'retro') url = '/api/jerseys?category=retro&limit=8';
 
     const data = await apiFetch(url);
     if (data && data.error) {
-      container.innerHTML = '<div class="cart-empty"><p>Couldn\'t load products right now. Please try again.</p></div>';
+      if (!cached) container.innerHTML = '<div class="cart-empty"><p>Couldn\'t load products right now. Please try again.</p></div>';
       return;
     }
     const jerseys = Array.isArray(data) ? data : [];
-    if (!jerseys.length) {
+    if (!jerseys.length && !cached) {
       container.innerHTML = '<div class="cart-empty"><p>No products found.</p></div>';
       return;
     }
-
-    container.innerHTML = jerseys.map(jersey => renderJerseyCardHtml(jersey)).join('');
-
-    // Attach card event listeners
-    container.querySelectorAll('.jersey-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const id = card.getAttribute('data-id');
-        navigateTo('detail', { jerseyId: id });
-      });
-    });
+    if (jerseys.length) {
+      cacheJerseys(cacheKey, jerseys);
+      renderJerseyGrid(container, jerseys);
+    }
   }
 
   // Load All Teams List
