@@ -1260,7 +1260,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const formData = new FormData(checkoutForm);
     const selectedCountry = formData.get('country') || state.country || 'United Kingdom';
-    const paymentMethod = formData.get('payment_method') || 'COD';
+    const paymentMethod = formData.get('payment_method') || 'ziina';
 
     const orderData = {
       customer_name: formData.get('customer_name'),
