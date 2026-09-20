@@ -432,58 +432,96 @@ async function notifyOrder(orderData) {
   console.log('[Notification] SMS attempted');
 }
 
+const customerEmailedOrders = new Set();
+
 function customerOrderEmailHtml(orderData) {
-  const { orderId, customerName, items = [], total, currencySymbol = '€', paymentMethod = 'COD', address, country } = orderData;
+  const {
+    orderId,
+    customerName,
+    items = [],
+    subtotal,
+    deliveryFee = 5,
+    namePrintingFee = 0,
+    total,
+    currencySymbol = '€',
+    paymentMethod = 'Online',
+    paymentStatus = 'Paid',
+    address,
+    country,
+    createdTime,
+  } = orderData;
 
   const itemRows = items.map((item, idx) => {
     const f = itemFields(item, currencySymbol);
     return `
       <tr>
-        <td style="padding:12px 16px;border-bottom:1px solid #1a1a1a;font-size:14px;color:#e0e0e0;">
-          <strong style="color:#fff;">${f.name}</strong><br>
-          <span style="color:#888;">${f.version} · ${f.size} · Qty ${f.qty}</span>
-          ${f.player ? `<br><span style="color:#b3f000;">Name: ${f.player}</span>` : ''}
+        <td style="padding:14px 16px;border-bottom:1px solid #1f1f1f;font-size:14px;color:#e0e0e0;vertical-align:top;">
+          <strong style="color:#ffffff;font-size:15px;">${f.name}</strong><br>
+          <span style="color:#9ca3af;font-size:12px;line-height:1.6;">${f.version} · Size: <span style="color:#ffffff;font-weight:600;">${f.size}</span> · Qty: ${f.qty}</span>
+          ${f.player ? `<br><span style="color:#b3f000;font-size:12px;font-weight:600;">Custom Print: ${f.player}</span>` : ''}
         </td>
-        <td style="padding:12px 16px;border-bottom:1px solid #1a1a1a;text-align:right;font-family:'Courier New',monospace;font-size:14px;color:#fff;white-space:nowrap;">
+        <td style="padding:14px 16px;border-bottom:1px solid #1f1f1f;text-align:right;font-family:'Courier New',monospace;font-size:14px;color:#ffffff;white-space:nowrap;vertical-align:top;">
           ${f.price}
         </td>
       </tr>`;
   }).join('');
 
+  const formattedDate = createdTime ? new Date(createdTime).toLocaleString('en-US', { timeZone: 'UTC', dateStyle: 'medium', timeStyle: 'short' }) + ' UTC' : new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+  const subtotalVal = typeof subtotal === 'number' ? subtotal : (Number(total) - Number(deliveryFee || 0) - Number(namePrintingFee || 0));
+
   return `
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background:#030303;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:600px;margin:0 auto;background:#090909;border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;margin-top:20px;margin-bottom:20px;">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Receipt ORD-${orderId} - JRZEES</title>
+</head>
+<body style="margin:0;padding:0;background-color:#050505;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f3f4f6;">
+  <div style="max-width:620px;margin:30px auto;background-color:#0d0d0d;border:1px solid rgba(255,255,255,0.08);border-radius:14px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.6);">
 
-    <!-- Header -->
-    <div style="background:linear-gradient(135deg,#0a0a0a,#111);padding:32px 24px;text-align:center;border-bottom:2px solid #b3f000;">
-      <h1 style="margin:0;font-size:28px;font-weight:900;color:#fff;letter-spacing:2px;text-transform:uppercase;">JRZEES</h1>
-      <p style="margin:8px 0 0;color:#b3f000;font-size:12px;letter-spacing:3px;text-transform:uppercase;">Order Confirmed</p>
+    <!-- Branded Header -->
+    <div style="background:linear-gradient(135deg,#0a0a0a,#161616);padding:36px 28px;text-align:center;border-bottom:2px solid #b3f000;">
+      <h1 style="margin:0;font-size:30px;font-weight:900;color:#ffffff;letter-spacing:3px;text-transform:uppercase;">JRZEES</h1>
+      <p style="margin:8px 0 0;color:#b3f000;font-size:13px;letter-spacing:3px;font-weight:700;text-transform:uppercase;">Official Order Receipt</p>
     </div>
 
-    <!-- Body -->
-    <div style="padding:32px 24px;">
-      <p style="color:#e0e0e0;font-size:16px;margin:0 0 24px;">
-        Hey <strong style="color:#fff;">${customerName}</strong>,
-      </p>
-      <p style="color:#888;font-size:14px;line-height:1.6;margin:0 0 32px;">
-        Thanks for your order! We've received it and are getting it ready. Here are your order details:
-      </p>
-
-      <!-- Order ID -->
-      <div style="background:#111;border:1px solid rgba(179,240,0,0.2);border-radius:8px;padding:16px 20px;margin-bottom:24px;">
-        <span style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:2px;">Order ID</span><br>
-        <span style="color:#b3f000;font-family:'Courier New',monospace;font-size:20px;font-weight:bold;">ORD-${orderId}</span>
+    <!-- Thank You & Intro -->
+    <div style="padding:32px 28px;">
+      <div style="background:rgba(179,240,0,0.06);border:1px solid rgba(179,240,0,0.25);border-radius:10px;padding:18px 20px;margin-bottom:28px;">
+        <h2 style="margin:0 0 6px;font-size:18px;color:#b3f000;font-weight:700;">Thank You for Shopping with Us!</h2>
+        <p style="margin:0;color:#d1d5db;font-size:14px;line-height:1.5;">
+          Hey <strong style="color:#ffffff;">${customerName || 'Valued Customer'}</strong>, your order has been received and verified. Below is your official itemized receipt.
+        </p>
       </div>
 
-      <!-- Items Table -->
-      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+      <!-- Receipt Metadata Grid -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;background:#141414;border-radius:8px;overflow:hidden;">
+        <tr>
+          <td style="padding:14px 16px;border-bottom:1px solid #222;font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;">Order Reference</td>
+          <td style="padding:14px 16px;border-bottom:1px solid #222;text-align:right;font-family:'Courier New',monospace;font-size:15px;color:#b3f000;font-weight:bold;">ORD-${orderId}</td>
+        </tr>
+        <tr>
+          <td style="padding:14px 16px;border-bottom:1px solid #222;font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;">Date & Time</td>
+          <td style="padding:14px 16px;border-bottom:1px solid #222;text-align:right;font-size:13px;color:#ffffff;">${formattedDate}</td>
+        </tr>
+        <tr>
+          <td style="padding:14px 16px;border-bottom:1px solid #222;font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;">Payment Method</td>
+          <td style="padding:14px 16px;border-bottom:1px solid #222;text-align:right;font-size:13px;color:#ffffff;">${paymentMethod === 'COD' ? 'Cash on Delivery (COD)' : (paymentMethod || 'Online Payment')}</td>
+        </tr>
+        <tr>
+          <td style="padding:14px 16px;font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;">Payment Status</td>
+          <td style="padding:14px 16px;text-align:right;font-size:13px;color:#10b981;font-weight:bold;text-transform:uppercase;">${paymentStatus}</td>
+        </tr>
+      </table>
+
+      <!-- Itemized Items Table -->
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:2px;color:#9ca3af;font-weight:700;margin-bottom:10px;">Purchased Items</div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;background:#121212;border-radius:8px;overflow:hidden;">
         <thead>
-          <tr>
-            <th style="padding:8px 16px;text-align:left;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid #222;">Item</th>
-            <th style="padding:8px 16px;text-align:right;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid #222;">Price</th>
+          <tr style="background:#1a1a1a;">
+            <th style="padding:10px 16px;text-align:left;color:#9ca3af;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Item Description</th>
+            <th style="padding:10px 16px;text-align:right;color:#9ca3af;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Price</th>
           </tr>
         </thead>
         <tbody>
@@ -491,38 +529,49 @@ function customerOrderEmailHtml(orderData) {
         </tbody>
       </table>
 
-      <!-- Total -->
-      <div style="border-top:2px solid #222;padding-top:16px;margin-bottom:32px;">
-        <table style="width:100%;">
+      <!-- Financial Breakdown -->
+      <div style="background:#141414;border-radius:8px;padding:16px 20px;margin-bottom:24px;">
+        <table style="width:100%;border-collapse:collapse;">
           <tr>
-            <td style="color:#888;font-size:14px;padding:4px 0;">Payment Method</td>
-            <td style="text-align:right;color:#fff;font-size:14px;padding:4px 0;">${paymentMethod === 'COD' ? 'Cash on Delivery' : 'Online Payment'}</td>
+            <td style="color:#9ca3af;font-size:13px;padding:6px 0;">Subtotal</td>
+            <td style="text-align:right;color:#ffffff;font-size:13px;padding:6px 0;font-family:'Courier New',monospace;">${currencySymbol}${Number(subtotalVal > 0 ? subtotalVal : 0).toFixed(2)}</td>
           </tr>
           <tr>
-            <td style="color:#fff;font-size:20px;font-weight:bold;padding:12px 0 0;">Total</td>
-            <td style="text-align:right;color:#b3f000;font-size:20px;font-weight:bold;padding:12px 0 0;">${currencySymbol}${typeof total === 'number' ? total.toFixed(2) : total}</td>
+            <td style="color:#9ca3af;font-size:13px;padding:6px 0;">Delivery / Shipping Fee</td>
+            <td style="text-align:right;color:#ffffff;font-size:13px;padding:6px 0;font-family:'Courier New',monospace;">${currencySymbol}${Number(deliveryFee).toFixed(2)}</td>
+          </tr>
+          ${Number(namePrintingFee) > 0 ? `
+          <tr>
+            <td style="color:#9ca3af;font-size:13px;padding:6px 0;">Custom Player Name Printing</td>
+            <td style="text-align:right;color:#ffffff;font-size:13px;padding:6px 0;font-family:'Courier New',monospace;">${currencySymbol}${Number(namePrintingFee).toFixed(2)}</td>
+          </tr>` : ''}
+          <tr style="border-top:1px solid #282828;">
+            <td style="color:#ffffff;font-size:18px;font-weight:bold;padding:14px 0 4px;">Grand Total Paid</td>
+            <td style="text-align:right;color:#b3f000;font-size:20px;font-weight:900;padding:14px 0 4px;font-family:'Courier New',monospace;">${currencySymbol}${typeof total === 'number' ? total.toFixed(2) : total}</td>
           </tr>
         </table>
       </div>
 
-      <!-- Shipping -->
-      <div style="background:#111;border-radius:8px;padding:20px;margin-bottom:24px;">
-        <span style="color:#888;font-size:11px;text-transform:uppercase;letter-spacing:2px;">Shipping To</span>
-        <p style="color:#e0e0e0;font-size:14px;margin:8px 0 0;line-height:1.5;">
-          ${customerName}<br>
-          ${address || ''}<br>
+      <!-- Shipping Address -->
+      <div style="background:#141414;border-radius:8px;padding:18px 20px;margin-bottom:24px;">
+        <span style="color:#9ca3af;font-size:11px;text-transform:uppercase;letter-spacing:2px;font-weight:bold;">Delivery Address</span>
+        <p style="color:#e5e7eb;font-size:14px;margin:8px 0 0;line-height:1.6;">
+          <strong style="color:#ffffff;">${customerName || 'Customer'}</strong><br>
+          ${address || 'Address provided on file'}<br>
           ${country || ''}
         </p>
       </div>
 
-      <p style="color:#888;font-size:13px;line-height:1.6;margin:0;">
-        We'll notify you when your order ships. If you have any questions, just reply to this email.
+      <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:0;text-align:center;">
+        Questions about your order? Simply reply directly to this email for customer support.
       </p>
     </div>
 
     <!-- Footer -->
-    <div style="padding:20px 24px;border-top:1px solid #1a1a1a;text-align:center;">
-      <p style="color:#444;font-size:11px;margin:0;letter-spacing:1px;text-transform:uppercase;">JRZEES Football Kits — Verified Authentic</p>
+    <div style="padding:22px 28px;border-top:1px solid #1a1a1a;text-align:center;background:#0a0a0a;">
+      <p style="color:#6b7280;font-size:11px;margin:0;letter-spacing:1.5px;text-transform:uppercase;">
+        JRZEES Football Kits — Verified Premium Quality
+      </p>
     </div>
   </div>
 </body>
@@ -532,24 +581,78 @@ function customerOrderEmailHtml(orderData) {
 async function sendCustomerEmail(orderData) {
   if (!resend || !orderData.email) return false;
 
+  const orderIdKey = String(orderData.orderId);
+  if (customerEmailedOrders.has(orderIdKey)) {
+    console.log(`[Email] Receipt already sent to customer for order #${orderIdKey}. Skipping duplicate.`);
+    return true;
+  }
+
+  const html = customerOrderEmailHtml(orderData);
+  const subject = `Order Confirmed & Receipt — ORD-${orderData.orderId} | JRZEES`;
+
+  const isDomainError = (result) => {
+    if (!result) return false;
+    const err = result.error;
+    if (!err) return false;
+    return err.statusCode === 403 || err.name === 'validation_error' ||
+      (err.message && (err.message.toLowerCase().includes('domain') || err.message.toLowerCase().includes('not verified')));
+  };
+
+  let primaryResult = null;
   try {
-    const html = customerOrderEmailHtml(orderData);
-    const result = await resend.emails.send({
+    primaryResult = await resend.emails.send({
       from: EMAIL_FROM,
       to: orderData.email,
-      subject: `Order Confirmed — ORD-${orderData.orderId} | JRZEES`,
+      subject,
       html,
     });
-    if (result.data && result.data.id) {
-      console.log(`[Email] Customer confirmation sent to ${orderData.email} (id: ${result.data.id})`);
-      return true;
-    }
-    console.warn('[Email] Resend returned no id:', JSON.stringify(result));
-    return false;
   } catch (err) {
-    console.error(`[Email] Failed to send to ${orderData.email}:`, err.message);
-    return false;
+    console.warn(`[Email] Primary send exception: ${err.message}`);
+    primaryResult = { error: { message: err.message, name: 'send_exception', statusCode: 500 } };
   }
+
+  if (primaryResult && primaryResult.data && primaryResult.data.id) {
+    customerEmailedOrders.add(orderIdKey);
+    console.log(`[Email] Customer receipt sent to ${orderData.email} (id: ${primaryResult.data.id})`);
+    return true;
+  }
+
+  // Attempt fallback if it's a domain/validation problem
+  if (isDomainError(primaryResult)) {
+    console.warn(`[Email] Domain not verified for "${EMAIL_FROM}" — trying fallback sender onboarding@resend.dev...`);
+    try {
+      const fallbackResult = await resend.emails.send({
+        from: 'JRZEES <onboarding@resend.dev>',
+        to: orderData.email,
+        subject,
+        html,
+      });
+      if (fallbackResult && fallbackResult.data && fallbackResult.data.id) {
+        customerEmailedOrders.add(orderIdKey);
+        console.log(`[Email] Customer receipt sent via fallback to ${orderData.email} (id: ${fallbackResult.data.id})`);
+        return true;
+      }
+      console.warn('[Email] Fallback also returned no id:', JSON.stringify(fallbackResult));
+    } catch (fbErr) {
+      console.error('[Email] Fallback send exception:', fbErr.message);
+    }
+
+    // Always send a copy of the receipt to store owner so it is never missed
+    try {
+      await resend.emails.send({
+        from: 'JRZEES <onboarding@resend.dev>',
+        to: 'kickoffjersey4@gmail.com',
+        subject: `[Admin Receipt] ORD-${orderData.orderId} - ${orderData.customerName || 'Customer'} (${orderData.email})`,
+        html: `<div style="background:#fef3c7;color:#92400e;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-family:sans-serif;font-size:14px;"><strong>Notice:</strong> To send receipts directly to customer addresses, verify <strong>jrzees.com</strong> at <a href="https://resend.com/domains">resend.com/domains</a>.</div>` + html,
+      });
+      console.log(`[Email] Backup receipt sent to store owner (kickoffjersey4@gmail.com) for order #${orderIdKey}`);
+    } catch (adminErr) {
+      console.warn('[Email] Could not send backup to store owner:', adminErr.message);
+    }
+  } else {
+    console.warn('[Email] Resend returned error (non-domain):', JSON.stringify(primaryResult));
+  }
+  return false;
 }
 
 module.exports = { notifyOrder, formatNotificationMessage, sendCustomerEmail };

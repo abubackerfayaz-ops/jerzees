@@ -17,7 +17,7 @@ const db = require('./database');
 const ZIINA_API_TOKEN = process.env.ZIINA_API_TOKEN || '';
 const ZIINA_WEBHOOK_SECRET = process.env.ZIINA_WEBHOOK_SECRET || '';
 const ZIINA_API_URL = process.env.ZIINA_API_URL || 'https://api-v2.ziina.com/api';
-const ZIINA_WEBHOOK_URL = process.env.ZIINA_WEBHOOK_URL || '';
+const ZIINA_WEBHOOK_URL = (process.env.ZIINA_WEBHOOK_URL || 'https://www.jrzees.com/api/ziina-webhook').replace('https://jrzees.com', 'https://www.jrzees.com');
 const ziinaConfigured = !!(ZIINA_API_TOKEN && ZIINA_API_TOKEN.length >= 20 && !ZIINA_API_TOKEN.includes('XXXX'));
 
 // Currencies Ziina can process. Amounts are passed in the base (minor) units.
@@ -1247,10 +1247,11 @@ app.get('/api/orders/:id', async (req, res) => {
     );
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
-    // When looked up by payment intent, sync the latest status from Ziina
-    if (isPaymentIntent && ziinaConfigured) {
+    // Sync the latest status from Ziina (support both payment intent and numeric order ID)
+    const ziinaIntentId = isPaymentIntent ? req.params.id : order.stripe_session_id;
+    if (ziinaIntentId && ziinaConfigured && order.payment_status !== 'paid') {
       try {
-        const intent = await ziinaRequest('GET', `/payment_intent/${encodeURIComponent(req.params.id)}`);
+        const intent = await ziinaRequest('GET', `/payment_intent/${encodeURIComponent(ziinaIntentId)}`);
         if (intent && intent.status === 'completed' && order.payment_status !== 'paid') {
           const updateRes = await db.query(
             `UPDATE orders SET payment_status = 'paid', status = 'confirmed', payment_method = 'ziina', paid_at = NOW(), updated_at = NOW()
@@ -1269,6 +1270,33 @@ app.get('/api/orders/:id', async (req, res) => {
           order.payment_status = 'paid';
           order.status = 'confirmed';
           order.payment_method = 'ziina';
+
+          // Trigger Telegram notification
+          try {
+            const notifItems = await db.all(
+              `SELECT oi.*, j.name as jersey_name, j.season, j.type as category,
+                      (SELECT image_url FROM jersey_images WHERE jersey_id = j.id ORDER BY sort_order LIMIT 1) as image_url
+               FROM order_items oi JOIN jerseys j ON oi.jersey_id = j.id
+               WHERE oi.order_id = $1`,
+              [order.id]
+            );
+            notifyOrder({
+              orderId: order.id,
+              customerName: order.customer_name || 'Customer',
+              phone: order.phone || 'N/A',
+              email: order.email || order.customer_email || 'N/A',
+              address: order.address || 'N/A',
+              country: order.address_country || 'N/A',
+              total: order.total,
+              currencySymbol: '€',
+              paymentStatus: 'Paid',
+              paymentMethod: 'Ziina',
+              createdTime: order.created_at || new Date().toISOString(),
+              items: notifItems
+            }).catch(err => console.error('GET /api/orders/:id Telegram notification error:', err.message));
+          } catch (tErr) {
+            console.error('Telegram notification error:', tErr.message);
+          }
         } else if (intent && ['failed', 'canceled'].includes(intent.status) && order.payment_status !== 'paid') {
           await db.query(
             `UPDATE orders SET payment_status = 'failed', updated_at = NOW() WHERE id = $1`,
