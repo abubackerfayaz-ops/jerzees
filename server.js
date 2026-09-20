@@ -77,7 +77,7 @@ if (!JWT_SECRET || JWT_SECRET === 'dev-secret-change-in-production' || JWT_SECRE
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BASE_URL = process.env.BASE_URL || 'https://www.jrzees.com';
+const BASE_URL = (process.env.BASE_URL && !process.env.BASE_URL.includes('localhost')) ? process.env.BASE_URL : 'https://www.jrzees.com';
 
 // Validate critical env vars
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.includes('change-this')) {
