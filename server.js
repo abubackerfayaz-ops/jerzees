@@ -77,7 +77,7 @@ if (!JWT_SECRET || JWT_SECRET === 'dev-secret-change-in-production' || JWT_SECRE
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+const BASE_URL = process.env.BASE_URL || 'https://www.jrzees.com';
 
 // Validate critical env vars
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.includes('change-this')) {
@@ -212,6 +212,23 @@ app.post('/api/ziina-webhook', express.raw({ type: 'application/json' }), async 
               createdTime: new Date().toISOString(),
               items
             }).catch(err => console.error('Ziina webhook notifyOrder error:', err.message));
+
+            sendCustomerEmail({
+              orderId: fullOrder.id,
+              customerName: fullOrder.customer_name,
+              email: fullOrder.email,
+              address: addr?.street || 'N/A',
+              country: addr?.country || 'N/A',
+              subtotal: fullOrder.subtotal,
+              deliveryFee: fullOrder.delivery_fee,
+              namePrintingFee: fullOrder.name_printing_fee,
+              total: fullOrder.total,
+              currencySymbol: '€',
+              paymentMethod: 'Online Payment (Ziina)',
+              paymentStatus: 'Paid',
+              createdTime: fullOrder.created_at || new Date().toISOString(),
+              items
+            }).catch(err => console.error('Ziina webhook sendCustomerEmail error:', err.message));
           }
         } catch (notifErr) {
           console.error('Order notification error:', notifErr.message);
@@ -1265,13 +1282,34 @@ app.get('/api/orders/:id', async (req, res) => {
     }
 
     const items = await db.all(
-      `SELECT oi.*, j.name as jersey_name, t.name as team_name, t.slug as team_slug
+      `SELECT oi.*, j.name as jersey_name, t.name as team_name, t.slug as team_slug,
+              (SELECT image_url FROM jersey_images WHERE jersey_id = j.id ORDER BY sort_order LIMIT 1) as image_url
        FROM order_items oi
        JOIN jerseys j ON oi.jersey_id = j.id
        JOIN teams t ON j.team_id = t.id
        WHERE oi.order_id = $1`,
       [order.id]
     );
+
+    // Sync receipt email if order is paid
+    if (order.payment_status === 'paid' && (order.email || order.customer_email)) {
+      sendCustomerEmail({
+        orderId: order.id,
+        customerName: order.customer_name || 'Customer',
+        email: order.email || order.customer_email,
+        address: order.address || 'N/A',
+        country: order.address_country || 'N/A',
+        subtotal: order.subtotal,
+        deliveryFee: order.delivery_fee,
+        namePrintingFee: order.name_printing_fee,
+        total: order.total,
+        currencySymbol: '€',
+        paymentMethod: order.payment_method === 'COD' ? 'Cash on Delivery' : 'Online Payment (Ziina)',
+        paymentStatus: 'Paid',
+        createdTime: order.created_at || new Date().toISOString(),
+        items
+      }).catch(err => console.error('GET /api/orders/:id email sync error:', err.message));
+    }
 
     res.json({ ...order, items });
   } catch (err) {
