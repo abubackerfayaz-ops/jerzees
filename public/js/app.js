@@ -1339,45 +1339,200 @@ document.addEventListener('DOMContentLoaded', () => {
   // Render Confirmation Details (accepts order id or payment intent id)
   async function renderOrderConfirmation(orderId) {
     const container = document.getElementById('order-details');
-    container.innerHTML = '<div class="cart-empty"><p>Loading order details...</p></div>';
+    container.innerHTML = '<div class="cart-empty" style="padding:60px 20px;text-align:center;"><p style="font-size:1.1rem;color:var(--gray);">Loading official order receipt...</p></div>';
+
+    // Trigger celebration confetti
+    if (typeof confetti === 'function') {
+      try {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+        setTimeout(() => {
+          confetti({ particleCount: 50, angle: 60, spread: 55, origin: { x: 0 } });
+          confetti({ particleCount: 50, angle: 120, spread: 55, origin: { x: 1 } });
+        }, 300);
+      } catch (e) {}
+    }
 
     const order = await apiFetch(`/api/orders/${encodeURIComponent(orderId)}`);
     if (!order || order.error) {
-      container.innerHTML = `<div class="cart-empty"><p>Order #${orderId} details couldn't be loaded.</p></div>`;
+      container.innerHTML = `<div class="cart-empty" style="padding:40px;text-align:center;"><p>Order #${orderId} details couldn't be loaded.</p></div>`;
       return;
     }
 
+    const items = order.items || [];
+    const customerName = order.customer_name || 'Valued Customer';
+    const email = order.email || order.customer_email || 'your email';
+    const subtotal = Number(order.subtotal || (order.total - (order.delivery_fee || 5) - (order.name_printing_fee || 0)));
+    const deliveryFee = Number(order.delivery_fee != null ? order.delivery_fee : 5);
+    const namePrintingFee = Number(order.name_printing_fee || 0);
+    const grandTotal = Number(order.total);
+    const paymentMethodLabel = order.payment_method === 'COD' ? 'Cash on Delivery (COD)' : (order.payment_method || 'Online Payment');
+    const isPaid = order.payment_status === 'paid';
+    const formattedDate = order.created_at ? new Date(order.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+
+    const itemRows = items.map(item => {
+      const vLabel = item.version === 'player' ? 'Player Issue' : item.version === 'retro' ? 'Retro Edition' : 'Fan Version';
+      const itemPrice = Number(item.unit_price || item.price || 0);
+      const lineTotal = itemPrice * (item.quantity || 1);
+      const fallbackImg = item.image_url || '/images/jrzees_logo.png';
+
+      return `
+        <tr>
+          <td>
+            <div class="receipt-item-cell">
+              <img src="${fallbackImg}" alt="${item.jersey_name || 'Jersey'}" class="receipt-item-img" onerror="this.src='/images/jrzees_logo.png'">
+              <div>
+                <div class="receipt-item-title">${item.jersey_name || 'Football Jersey'}</div>
+                <div class="receipt-item-tags">
+                  <span class="receipt-tag">${vLabel}</span>
+                  <span class="receipt-tag">Size: ${item.size || 'M'}</span>
+                  ${item.name_text ? `<span class="receipt-tag custom-print">Print: ${item.name_text}</span>` : ''}
+                </div>
+              </div>
+            </div>
+          </td>
+          <td style="text-align:center;font-weight:600;color:#e5e7eb;">${item.quantity || 1}</td>
+          <td style="text-align:right;font-family:'Courier New',monospace;color:#9ca3af;">${formatPrice(itemPrice)}</td>
+          <td style="text-align:right;font-family:'Courier New',monospace;font-weight:700;color:#ffffff;">${formatPrice(lineTotal)}</td>
+        </tr>
+      `;
+    }).join('');
+
     container.innerHTML = `
-      <div class="confirmation-card">
-        <svg class="success-icon-svg" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <h2>Thank You, ${order.customer_name}!</h2>
-        <p>Your order has been received and is currently being processed. An email confirmation has been sent to <strong>${order.email}</strong>.</p>
-        
-        <div class="confirmation-details">
-          <div class="row">
-            <span>Order ID</span>
-            <span>#${order.id}</span>
+      <div class="confirmation-wrapper">
+        <!-- Hero Confirmation -->
+        <div class="confirmation-hero">
+          <div class="confirmation-hero-badge">
+            <span>${isPaid ? '✓ Payment Confirmed' : '✓ Order Verified'}</span>
           </div>
-          <div class="row">
-            <span>Status</span>
-            <span style="color:var(--accent-gold); text-transform:uppercase;">${order.status}</span>
+          <div class="confirmation-hero-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
           </div>
-          <div class="row">
-            <span>Shipping Address</span>
-            <span>${order.address}</span>
+          <h2>Thank You for Shopping with Us!</h2>
+          <p>
+            Hey <strong>${customerName}</strong>, your payment and order have been successfully processed. An itemized copy of your receipt has been emailed to <strong>${email}</strong>.
+          </p>
+        </div>
+
+        <!-- Official Itemized Digital Receipt -->
+        <div class="digital-receipt-card" id="digital-receipt-card">
+          <div class="receipt-top-bar">
+            <div class="receipt-brand-col">
+              <span class="receipt-brand-title">JRZEES</span>
+              <span class="receipt-sub-badge">Official Order Receipt & Tax Invoice</span>
+            </div>
+            <div class="receipt-meta-col">
+              <div class="receipt-order-id">ORD-${order.id}</div>
+              <div class="receipt-date-time">${formattedDate}</div>
+              <div class="receipt-status-pill" style="${isPaid ? '' : 'color:#f59e0b;background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.4);'}">
+                ${isPaid ? 'PAID & VERIFIED' : (order.status || 'PENDING').toUpperCase()}
+              </div>
+            </div>
           </div>
-          <div class="row" style="border-top:1px solid var(--border-color); padding-top:12px; margin-top:12px; font-weight:700;">
-            <span>Total Paid</span>
-            <span style="color:var(--accent-gold); font-size:1.15rem;">${formatPrice(Number(order.total))}</span>
+
+          <!-- Customer & Shipping Grid -->
+          <div class="receipt-info-grid">
+            <div class="receipt-info-block">
+              <h4>Customer Information</h4>
+              <p>
+                <strong>${customerName}</strong><br>
+                ${email}<br>
+                ${order.phone ? order.phone : ''}
+              </p>
+            </div>
+            <div class="receipt-info-block">
+              <h4>Delivery Destination</h4>
+              <p>
+                ${order.address || 'Address on file'}<br>
+                <strong>${order.address_country || order.country || ''}</strong>
+              </p>
+            </div>
+          </div>
+
+          <!-- Itemized Items Table -->
+          <div class="receipt-items-section">
+            <div class="receipt-section-heading">Purchased Items</div>
+            <table class="receipt-table">
+              <thead>
+                <tr>
+                  <th>Item Details</th>
+                  <th style="text-align:center;">Qty</th>
+                  <th style="text-align:right;">Unit Price</th>
+                  <th style="text-align:right;">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemRows || '<tr><td colspan="4" style="text-align:center;color:#888;">Items loaded.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Financial Breakdown -->
+          <div class="receipt-summary-box">
+            <div class="receipt-summary-row">
+              <span>Subtotal</span>
+              <span class="val">${formatPrice(subtotal > 0 ? subtotal : 0)}</span>
+            </div>
+            <div class="receipt-summary-row">
+              <span>Delivery / Shipping Fee</span>
+              <span class="val">${formatPrice(deliveryFee)}</span>
+            </div>
+            ${namePrintingFee > 0 ? `
+            <div class="receipt-summary-row">
+              <span>Custom Player Name Printing</span>
+              <span class="val">${formatPrice(namePrintingFee)}</span>
+            </div>` : ''}
+            <div class="receipt-summary-row">
+              <span>Payment Method</span>
+              <span class="val" style="color:#e5e7eb;">${paymentMethodLabel}</span>
+            </div>
+            <div class="receipt-summary-row total-row">
+              <span>Grand Total Paid</span>
+              <span class="val">${formatPrice(grandTotal)}</span>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="receipt-actions">
+            <div class="receipt-email-pill">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+              <span>Receipt emailed to ${email}</span>
+            </div>
+            <div class="receipt-btn-group">
+              <button type="button" class="btn btn-secondary" onclick="window.print()" id="print-receipt-btn" style="display:inline-flex;align-items:center;gap:8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                  <rect x="6" y="14" width="12" height="8"></rect>
+                </svg>
+                Print / Save PDF
+              </button>
+              <a href="#" class="btn btn-primary" data-page="home">Continue Shopping</a>
+            </div>
           </div>
         </div>
       </div>
     `;
+
+    // Re-bind continue shopping click inside confirmation
+    container.querySelectorAll('[data-page="home"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        navigateTo('home');
+      });
+    });
   }
 
-  // Handle confirmation back routing
+    // Handle confirmation back routing
   document.querySelector('[data-page="home"]').addEventListener('click', (e) => {
     e.preventDefault();
     navigateTo('home');
@@ -1796,6 +1951,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     mainNav.querySelectorAll('a').forEach(a => {
       a.addEventListener('click', () => {
+        scrollY = 0;
         hamburger.classList.remove('active');
         mainNav.classList.remove('active');
         unlockScroll();

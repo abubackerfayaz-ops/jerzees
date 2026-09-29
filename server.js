@@ -1294,8 +1294,22 @@ app.get('/api/orders/:id', async (req, res) => {
               createdTime: order.created_at || new Date().toISOString(),
               items: notifItems
             }).catch(err => console.error('GET /api/orders/:id Telegram notification error:', err.message));
+
+            // Send confirmation email to customer
+            sendCustomerEmail({
+              orderId: order.id,
+              customerName: order.customer_name || 'Customer',
+              email: order.email || order.customer_email,
+              address: order.address || '',
+              country: order.address_country || '',
+              total: order.total,
+              currencySymbol: '€',
+              paymentMethod: 'Ziina',
+              items: notifItems,
+              createdTime: order.created_at,
+            }).catch(err => console.error('sendCustomerEmail error:', err.message));
           } catch (tErr) {
-            console.error('Telegram notification error:', tErr.message);
+            console.error('Notification error:', tErr.message);
           }
         } else if (intent && ['failed', 'canceled'].includes(intent.status) && order.payment_status !== 'paid') {
           await db.query(
