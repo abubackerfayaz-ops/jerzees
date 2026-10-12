@@ -2509,6 +2509,10 @@ footer::before {
     color: var(--green) !important;
     transform: translateX(4px) !important;
   }
+  nav a[data-page="teams"], #main-nav a[data-page="teams"],
+  nav #nav-admin-link, #main-nav #nav-admin-link {
+    display: none !important;
+  }
 }
 
 @media (max-width: 1100px) {
